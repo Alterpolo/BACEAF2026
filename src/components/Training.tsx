@@ -6,6 +6,7 @@ import {
   generateSubjectList,
   evaluateStudentWork,
 } from "../services/api";
+import { saveExercise, updateExercise } from "../services/database";
 import { Button } from "./Button";
 
 export const Training: React.FC = () => {
@@ -19,6 +20,9 @@ export const Training: React.FC = () => {
   const [subject, setSubject] = useState<string>("");
   const [studentInput, setStudentInput] = useState<string>("");
   const [feedback, setFeedback] = useState<string>("");
+  const [currentExerciseId, setCurrentExerciseId] = useState<string | null>(
+    null,
+  );
 
   // UI State
   const [loading, setLoading] = useState<boolean>(false);
@@ -82,6 +86,25 @@ export const Training: React.FC = () => {
       );
       setFeedback(result);
       setStep(3);
+
+      // Save exercise to database
+      if (currentExerciseId) {
+        await updateExercise(currentExerciseId, {
+          studentAnswer: studentInput,
+          aiFeedback: result,
+        });
+      } else {
+        const saved = await saveExercise({
+          exerciseType,
+          work: selectedWork || undefined,
+          subject,
+          studentAnswer: studentInput,
+          aiFeedback: result,
+        });
+        if (saved) {
+          setCurrentExerciseId(saved.id);
+        }
+      }
     } catch (err) {
       alert("Erreur lors de l'évaluation.");
     } finally {
@@ -95,6 +118,7 @@ export const Training: React.FC = () => {
     setSubjectList([]);
     setStudentInput("");
     setFeedback("");
+    setCurrentExerciseId(null);
   };
 
   const getSelectedValue = () => {
