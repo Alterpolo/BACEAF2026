@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import { Link } from "react-router-dom";
+import { Lock, Sparkles, AlertTriangle } from "lucide-react";
 import { ExerciseType, Genre, Work } from "../types";
 import { PROGRAM_2026 } from "../constants";
 import {
@@ -8,8 +10,18 @@ import {
 } from "../services/api";
 import { saveExercise, updateExercise } from "../services/database";
 import { Button } from "./Button";
+import { useSubscription } from "../contexts/SubscriptionContext";
 
 export const Training: React.FC = () => {
+  const {
+    subscription,
+    isPremium,
+    hasAI,
+    canDoExercise,
+    remainingExercises,
+    refreshSubscription,
+  } = useSubscription();
+
   const [exerciseType, setExerciseType] = useState<ExerciseType>(
     ExerciseType.DISSERTATION,
   );
@@ -77,6 +89,36 @@ export const Training: React.FC = () => {
 
   const handleEvaluate = async () => {
     if (!studentInput.trim()) return;
+
+    // Check if user has AI access
+    if (!hasAI) {
+      // Save without AI feedback for free users
+      setLoading(true);
+      try {
+        const saved = await saveExercise({
+          exerciseType,
+          work: selectedWork || undefined,
+          subject,
+          studentAnswer: studentInput,
+          aiFeedback: null,
+        });
+        if (saved) {
+          setCurrentExerciseId(saved.id);
+        }
+        // Refresh subscription to update exercise count
+        await refreshSubscription();
+        setFeedback(
+          "Pour obtenir une correction détaillée par IA, passez à un abonnement Premium.",
+        );
+        setStep(3);
+      } catch (err) {
+        alert("Erreur lors de la sauvegarde.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await evaluateStudentWork(
@@ -105,6 +147,8 @@ export const Training: React.FC = () => {
           setCurrentExerciseId(saved.id);
         }
       }
+      // Refresh subscription to update exercise count
+      await refreshSubscription();
     } catch (err) {
       alert("Erreur lors de l'évaluation.");
     } finally {
@@ -131,8 +175,54 @@ export const Training: React.FC = () => {
     return "";
   };
 
+  // Check if user can do exercise (free plan limit)
+  if (!canDoExercise && step === 1) {
+    return (
+      <div className="max-w-2xl mx-auto p-8 text-center">
+        <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <AlertTriangle className="w-8 h-8 text-orange-600" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-900 mb-2">
+          Limite hebdomadaire atteinte
+        </h2>
+        <p className="text-slate-600 mb-6">
+          Vous avez utilisé vos 3 exercices gratuits cette semaine. Passez à
+          Premium pour un accès illimité et la correction par IA.
+        </p>
+        <Link
+          to="/tarifs"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
+        >
+          <Sparkles className="w-5 h-5" />
+          Passer à Premium
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 max-w-4xl mx-auto p-4 md:p-8 bg-white shadow-sm rounded-xl border border-slate-200">
+      {/* Free plan warning */}
+      {!isPremium && remainingExercises > 0 && remainingExercises <= 3 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-600" />
+            <p className="text-sm text-amber-800">
+              <strong>{remainingExercises}</strong> exercice
+              {remainingExercises > 1 ? "s" : ""} restant
+              {remainingExercises > 1 ? "s" : ""} cette semaine
+              {!hasAI && " (sans correction IA)"}
+            </p>
+          </div>
+          <Link
+            to="/tarifs"
+            className="text-sm font-medium text-amber-700 hover:text-amber-900"
+          >
+            Passer à Premium
+          </Link>
+        </div>
+      )}
+
       {/* Header */}
       <div className="border-b border-slate-100 pb-6 flex justify-between items-center">
         <div>
@@ -143,6 +233,12 @@ export const Training: React.FC = () => {
             Générez des sujets, choisissez parmi des propositions, et recevez
             une correction immédiate.
           </p>
+          {!hasAI && (
+            <p className="text-sm text-orange-600 mt-1 flex items-center gap-1">
+              <Lock className="w-4 h-4" />
+              La correction par IA nécessite un abonnement Premium
+            </p>
+          )}
         </div>
         {step > 1 && (
           <button

@@ -12,7 +12,10 @@ import { Login } from "./components/Login";
 import { Dashboard } from "./components/Dashboard";
 import { TeacherDashboard } from "./components/TeacherDashboard";
 import { SkillProgression } from "./components/SkillProgression";
+import { Pricing } from "./components/Pricing";
+import { TutoringCalendar } from "./components/TutoringCalendar";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { SubscriptionProvider } from "./contexts/SubscriptionContext";
 import { Layout } from "./components/layout/Layout";
 
 // Protected Route Wrapper
@@ -39,69 +42,80 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <Layout>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/methodologie"
-              element={
-                <ProtectedRoute>
-                  <Methodology />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/methodologie/:type"
-              element={
-                <ProtectedRoute>
-                  <Methodology />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/entrainement"
-              element={
-                <ProtectedRoute>
-                  <Training />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/programme"
-              element={
-                <ProtectedRoute>
-                  <Program />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/enseignant"
-              element={
-                <ProtectedRoute>
-                  <TeacherDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/progression"
-              element={
-                <ProtectedRoute>
-                  <SkillProgression />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </Layout>
-      </Router>
+      <SubscriptionProvider>
+        <Router>
+          <Layout>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/tarifs" element={<Pricing />} />
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/methodologie"
+                element={
+                  <ProtectedRoute>
+                    <Methodology />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/methodologie/:type"
+                element={
+                  <ProtectedRoute>
+                    <Methodology />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/entrainement"
+                element={
+                  <ProtectedRoute>
+                    <Training />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/programme"
+                element={
+                  <ProtectedRoute>
+                    <Program />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/enseignant"
+                element={
+                  <ProtectedRoute>
+                    <TeacherDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/progression"
+                element={
+                  <ProtectedRoute>
+                    <SkillProgression />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/cours"
+                element={
+                  <ProtectedRoute>
+                    <TutoringCalendar />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </Layout>
+        </Router>
+      </SubscriptionProvider>
     </AuthProvider>
   );
 }

@@ -25,6 +25,7 @@ import {
   Recommendation,
 } from "../services/progression";
 import { ExerciseType } from "../types";
+import { SubscriptionBanner } from "./SubscriptionBanner";
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -100,6 +101,9 @@ export const Dashboard: React.FC = () => {
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-8 animate-fade-in">
+      {/* Subscription Banner */}
+      <SubscriptionBanner />
+
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
