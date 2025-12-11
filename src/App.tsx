@@ -11,6 +11,7 @@ import { Program } from "./components/Program";
 import { Login } from "./components/Login";
 import { Dashboard } from "./components/Dashboard";
 import { TeacherDashboard } from "./components/TeacherDashboard";
+import { SkillProgression } from "./components/SkillProgression";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Layout } from "./components/layout/Layout";
 
@@ -87,6 +88,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <TeacherDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/progression"
+              element={
+                <ProtectedRoute>
+                  <SkillProgression />
                 </ProtectedRoute>
               }
             />

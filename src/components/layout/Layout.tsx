@@ -8,6 +8,7 @@ import {
   FileText,
   User,
   Users,
+  Target,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { NotificationBell } from "../Notifications";
@@ -78,6 +79,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
                 </NavLink>
                 <NavLink to="/entrainement" icon={<GraduationCap />}>
                   Entraînement
+                </NavLink>
+                <NavLink to="/progression" icon={<Target />}>
+                  Progression
                 </NavLink>
                 <NavLink to="/programme" icon={<BookOpen />}>
                   Programme
@@ -156,6 +160,13 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Entraînement
+              </Link>
+              <Link
+                to="/progression"
+                className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-indigo-600 hover:bg-slate-50"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Progression
               </Link>
               <Link
                 to="/programme"
