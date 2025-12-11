@@ -43,7 +43,12 @@ npm start
 ## Environment Setup
 
 ### Frontend
-Set `VITE_API_URL` in `.env.local` (optional, defaults to `http://localhost:3001`).
+Create `.env.local` with:
+```
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_API_URL=http://localhost:3001
+```
 
 ### Backend
 Create `server/.env` with:
@@ -94,9 +99,9 @@ PORT=3001
 
 ### Core Patterns
 
-**Authentication**: Mock auth via `AuthContext` with localStorage persistence. Routes protected with `ProtectedRoute`.
+**Authentication**: Supabase Auth with email/password and Google OAuth. Session managed via `AuthContext` (`src/contexts/AuthContext.tsx`). Supabase client initialized in `src/lib/supabase.ts`. Routes protected with `ProtectedRoute`.
 
-**AI Integration**: Frontend calls backend API (`src/services/api.ts`), backend proxies to Gemini (`server/src/services/gemini.ts`). API key stays server-side.
+**AI Integration**: Frontend calls backend API (`src/services/api.ts`), backend proxies to DeepSeek (`server/src/services/deepseek.ts`). API key stays server-side.
 
 **Rate Limiting**: 20 requests/minute per IP on `/api/ai/*` routes.
 
