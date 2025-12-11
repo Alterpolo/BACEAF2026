@@ -1,7 +1,17 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, BookOpen, GraduationCap, FileText, User } from "lucide-react";
+import {
+  Menu,
+  X,
+  BookOpen,
+  GraduationCap,
+  FileText,
+  User,
+  Users,
+} from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { NotificationBell } from "../Notifications";
+import { getProfile, Profile } from "../../services/teacher";
 
 const NavLink: React.FC<{
   to: string;
@@ -32,6 +42,15 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const { user, signOut } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [profile, setProfile] = useState<Profile | null>(null);
+
+  useEffect(() => {
+    if (user) {
+      getProfile().then(setProfile);
+    }
+  }, [user]);
+
+  const isTeacher = profile?.role === "teacher" || profile?.role === "admin";
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
@@ -46,7 +65,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
                 <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-md group-hover:bg-indigo-700 transition-colors">
                   <span className="font-serif font-bold text-lg">B</span>
                 </div>
-                <span className="font-serif font-bold text-xl text-slate-800 tracking-tight">
+                <span className="font-serif font-bold text-xl text-slate-800 tracking-tight hidden sm:block">
                   Bac Français 2026
                 </span>
               </Link>
@@ -63,24 +82,39 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
                 <NavLink to="/programme" icon={<BookOpen />}>
                   Programme
                 </NavLink>
+                {isTeacher && (
+                  <NavLink to="/enseignant" icon={<Users />}>
+                    Espace Enseignant
+                  </NavLink>
+                )}
               </nav>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
               {user ? (
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-medium text-slate-700 hidden sm:block">
-                    {user.name}
-                  </span>
-                  <button
-                    onClick={signOut}
-                    className="text-xs text-slate-500 hover:text-red-600 transition-colors"
-                  >
-                    Déconnexion
-                  </button>
+                <>
+                  <NotificationBell />
+                  <div className="hidden sm:flex items-center gap-3 ml-2">
+                    <div className="text-right">
+                      <span className="text-sm font-medium text-slate-700 block">
+                        {user.name}
+                      </span>
+                      {isTeacher && (
+                        <span className="text-xs text-indigo-600">
+                          Enseignant
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={signOut}
+                      className="text-xs text-slate-500 hover:text-red-600 transition-colors"
+                    >
+                      Déconnexion
+                    </button>
+                  </div>
                   <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center text-indigo-600 border border-indigo-200">
                     <User size={16} />
                   </div>
-                </div>
+                </>
               ) : (
                 <Link
                   to="/login"
@@ -105,27 +139,51 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
               <Link
                 to="/"
                 className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-indigo-600 hover:bg-slate-50"
+                onClick={() => setIsMobileMenuOpen(false)}
               >
                 Accueil
               </Link>
               <Link
                 to="/methodologie"
                 className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-indigo-600 hover:bg-slate-50"
+                onClick={() => setIsMobileMenuOpen(false)}
               >
                 Méthodologie
               </Link>
               <Link
                 to="/entrainement"
                 className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-indigo-600 hover:bg-slate-50"
+                onClick={() => setIsMobileMenuOpen(false)}
               >
                 Entraînement
               </Link>
               <Link
                 to="/programme"
                 className="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:text-indigo-600 hover:bg-slate-50"
+                onClick={() => setIsMobileMenuOpen(false)}
               >
                 Programme
               </Link>
+              {isTeacher && (
+                <Link
+                  to="/enseignant"
+                  className="block px-3 py-2 rounded-md text-base font-medium text-indigo-600 hover:bg-indigo-50"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Espace Enseignant
+                </Link>
+              )}
+              {user && (
+                <button
+                  onClick={() => {
+                    signOut();
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-red-600 hover:bg-red-50"
+                >
+                  Déconnexion
+                </button>
+              )}
             </div>
           </div>
         )}

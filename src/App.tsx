@@ -10,6 +10,7 @@ import { Training } from "./components/Training";
 import { Program } from "./components/Program";
 import { Login } from "./components/Login";
 import { Dashboard } from "./components/Dashboard";
+import { TeacherDashboard } from "./components/TeacherDashboard";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Layout } from "./components/layout/Layout";
 
@@ -78,6 +79,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <Program />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/enseignant"
+              element={
+                <ProtectedRoute>
+                  <TeacherDashboard />
                 </ProtectedRoute>
               }
             />
