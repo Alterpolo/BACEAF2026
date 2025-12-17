@@ -1,0 +1,135 @@
+{
+  "name": "Generate Exercise - DeepSeek",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-exercise",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "generate-exercise"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.deepseek.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"deepseek-chat\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Tu es un professeur de français expert, correcteur au baccalauréat. Ton ton est pédagogique, encourageant mais exigeant (niveau Excellence). Tu aides les élèves de Première pour l'Épreuve Anticipée de Français (EAF). Tu connais parfaitement le programme 2026 et les méthodologies de la dissertation et du commentaire.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": {{ $json.prompt }}\n    }\n  ],\n  \"temperature\": 0.7,\n  \"max_tokens\": 2000\n}",
+        "options": {}
+      },
+      "id": "deepseek-request",
+      "name": "DeepSeek API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [650, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "DeepSeek API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"subject\": {{ $json.choices[0].message.content }}\n}",
+        "options": {}
+      },
+      "id": "set-output",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [870, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1090, 300]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"prompt\": {{ \n    $json.body.type === 'Dissertation' \n      ? `\"Génère un sujet de dissertation type bac sur l'œuvre \\\"${$json.body.work.title}\\\" de ${$json.body.work.author} dans le cadre du parcours \\\"${$json.body.work.parcours}\\\". Le sujet doit être une question ou une citation à discuter.${$json.body.customPrompt ? ' Instructions supplémentaires: ' + $json.body.customPrompt : ''}\"`\n      : $json.body.type === 'Commentaire'\n        ? `\"Choisis un extrait significatif (environ 20-25 lignes) tiré de l'œuvre \\\"${$json.body.work.title}\\\" de ${$json.body.work.author}. Génère le sujet complet du commentaire composé avec: 1. Le titre du passage ou sa situation précise dans l'œuvre. 2. Le texte intégral du passage sélectionné. 3. La consigne standard du bac.${$json.body.customPrompt ? ' Instructions supplémentaires: ' + $json.body.customPrompt : ''}\"`\n        : `\"Pose une question de grammaire ou une question d'interprétation ponctuelle sur un passage clé de \\\"${$json.body.work.title}\\\" pour préparer l'entretien de l'oral.${$json.body.customPrompt ? ' Instructions supplémentaires: ' + $json.body.customPrompt : ''}\"`\n  }}\n}",
+        "options": {}
+      },
+      "id": "build-prompt",
+      "name": "Build Prompt",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [450, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Build Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Prompt": {
+      "main": [
+        [
+          {
+            "node": "DeepSeek API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek API": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "Bac Français",
+      "id": "bac-francais"
+    }
+  ],
+  "pinData": {}
+}

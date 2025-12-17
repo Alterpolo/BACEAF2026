@@ -1,0 +1,210 @@
+{
+  "name": "Batch Generate Exercises - DeepSeek",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "batch-generate",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "batch-generate"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"works\": {{ $json.body.works }},\n  \"type\": {{ $json.body.type }},\n  \"exercisesPerWork\": {{ $json.body.exercisesPerWork || 3 }}\n}",
+        "options": {}
+      },
+      "id": "extract-params",
+      "name": "Extract Params",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "works",
+        "options": {}
+      },
+      "id": "split-works",
+      "name": "Split Works",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.deepseek.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"deepseek-chat\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Tu es un professeur de français expert, correcteur au baccalauréat. Génère des sujets de dissertation/commentaire type bac. Réponds UNIQUEMENT avec un tableau JSON de strings contenant les sujets, sans texte autour.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": `Génère ${$('Extract Params').item.json.exercisesPerWork} sujets de ${$('Extract Params').item.json.type} distincts sur l'œuvre \"${$json.works.title}\" de ${$json.works.author} (Parcours: \"${$json.works.parcours}\"). Retourne uniquement un tableau JSON de strings.`\n    }\n  ],\n  \"temperature\": 0.8,\n  \"max_tokens\": 3000,\n  \"response_format\": { \"type\": \"json_object\" }\n}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 3,
+              "batchInterval": 1000
+            }
+          }
+        }
+      },
+      "id": "deepseek-batch",
+      "name": "DeepSeek API (Batch)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [870, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "DeepSeek API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"work\": {{ $('Split Works').item.json.works }},\n  \"type\": {{ $('Extract Params').item.json.type }},\n  \"subjects\": {{ JSON.parse($json.choices[0].message.content).subjects || JSON.parse($json.choices[0].message.content) }},\n  \"generatedAt\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "id": "format-each",
+      "name": "Format Each Result",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1090, 300]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "exercises",
+        "options": {}
+      },
+      "id": "aggregate-results",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [1310, 300]
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"exercises\": {{ $json.exercises }},\n  \"totalGenerated\": {{ $json.exercises.reduce((sum, e) => sum + (e.subjects?.length || 0), 0) }},\n  \"worksProcessed\": {{ $json.exercises.length }}\n}",
+        "options": {}
+      },
+      "id": "final-format",
+      "name": "Final Format",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1530, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1750, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Extract Params",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Params": {
+      "main": [
+        [
+          {
+            "node": "Split Works",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Works": {
+      "main": [
+        [
+          {
+            "node": "DeepSeek API (Batch)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek API (Batch)": {
+      "main": [
+        [
+          {
+            "node": "Format Each Result",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Each Result": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Results": {
+      "main": [
+        [
+          {
+            "node": "Final Format",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Format": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "Bac Français",
+      "id": "bac-francais"
+    }
+  ],
+  "pinData": {}
+}

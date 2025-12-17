@@ -1,0 +1,112 @@
+{
+  "name": "Generate Work Analysis - DeepSeek",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "generate-analysis",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [250, 300],
+      "webhookId": "generate-analysis"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.deepseek.com/v1/chat/completions",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"deepseek-chat\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Tu es un professeur de français expert. Tu génères des fiches de révision complètes et structurées pour les élèves de Première préparant le bac français. Réponds UNIQUEMENT en JSON valide.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": `Réalise une fiche de révision complète pour l'œuvre \"${$json.body.work.title}\" de ${$json.body.work.author}.\n\nRéponds en JSON avec cette structure exacte:\n{\n  \"biography\": \"Courte biographie de l'auteur (dates, mouvement, style)\",\n  \"context\": \"Contexte historique et littéraire de l'œuvre\",\n  \"summary\": [\n    { \"partTitle\": \"Titre du chapitre/acte\", \"content\": \"Résumé de cette partie\" }\n  ],\n  \"characters\": [\n    { \"name\": \"Nom du personnage\", \"description\": \"Description\" }\n  ]\n}\n\nInclus au moins 4-5 parties dans le résumé et tous les personnages principaux.`\n    }\n  ],\n  \"temperature\": 0.4,\n  \"max_tokens\": 4000,\n  \"response_format\": { \"type\": \"json_object\" }\n}",
+        "options": {}
+      },
+      "id": "deepseek-request",
+      "name": "DeepSeek API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [500, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "DeepSeek API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"analysis\": {{ $json.choices[0].message.content }},\n  \"work\": {{ $('Webhook').item.json.body.work }},\n  \"generatedAt\": \"{{ new Date().toISOString() }}\"\n}",
+        "options": {}
+      },
+      "id": "format-response",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [750, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1000, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "DeepSeek API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DeepSeek API": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "Bac Français",
+      "id": "bac-francais"
+    }
+  ],
+  "pinData": {}
+}
