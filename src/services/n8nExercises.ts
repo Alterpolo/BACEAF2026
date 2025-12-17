@@ -40,7 +40,9 @@ export interface BatchGenerateParams {
 export interface GeneratedExercise {
   work: Work;
   type: ExerciseType;
-  subject: string;
+  subject?: string;
+  /** For batch generation, multiple subjects per work */
+  subjects?: string[];
   generatedAt: string;
 }
 

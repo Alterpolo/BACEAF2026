@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, BookOpen, Plus, Copy, Trash2, UserMinus, ClipboardList, TrendingUp } from 'lucide-react';
+import { Users, BookOpen, Plus, Copy, Trash2, UserMinus, ClipboardList, TrendingUp, Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from './ui/Toast';
 import {
@@ -17,6 +17,12 @@ import {
   getClassStudentsProgress,
   ClassMember,
 } from '../services/teacher';
+import {
+  generateExercise,
+  batchGenerateExercises,
+  GeneratedExercise,
+  ExerciseType as N8nExerciseType,
+} from '../services/n8nExercises';
 import { PROGRAM_2026 } from '../constants';
 import { ExerciseType, Work } from '../types';
 
@@ -29,7 +35,16 @@ export const TeacherDashboard: React.FC = () => {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [studentsProgress, setStudentsProgress] = useState<StudentProgress[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'students' | 'assignments' | 'progress'>('students');
+  const [activeTab, setActiveTab] = useState<'students' | 'assignments' | 'progress' | 'ai'>('students');
+
+  // AI Generation state
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiExerciseType, setAiExerciseType] = useState<N8nExerciseType>('Dissertation');
+  const [aiSelectedWork, setAiSelectedWork] = useState<Work | null>(null);
+  const [aiCustomPrompt, setAiCustomPrompt] = useState('');
+  const [generatedSubjects, setGeneratedSubjects] = useState<string[]>([]);
+  const [batchMode, setBatchMode] = useState(false);
+  const [batchWorks, setBatchWorks] = useState<Work[]>([]);
 
   // Modal states
   const [showCreateClass, setShowCreateClass] = useState(false);
@@ -138,6 +153,71 @@ export const TeacherDashboard: React.FC = () => {
   const copyJoinCode = (code: string) => {
     navigator.clipboard.writeText(code);
     toast.success('Code copié !');
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Sujet copié !');
+  };
+
+  // AI Generation handlers
+  const handleGenerateSingle = async () => {
+    if (!aiSelectedWork) {
+      toast.error('Veuillez sélectionner une œuvre');
+      return;
+    }
+
+    setAiGenerating(true);
+    try {
+      const subject = await generateExercise({
+        type: aiExerciseType,
+        work: aiSelectedWork,
+        customPrompt: aiCustomPrompt || undefined,
+      });
+      setGeneratedSubjects([subject]);
+      toast.success('Sujet généré !');
+    } catch (error) {
+      console.error('AI generation error:', error);
+      toast.error('Erreur lors de la génération. Vérifiez que n8n est configuré.');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const handleGenerateBatch = async () => {
+    if (batchWorks.length === 0) {
+      toast.error('Veuillez sélectionner au moins une œuvre');
+      return;
+    }
+
+    setAiGenerating(true);
+    try {
+      const result = await batchGenerateExercises({
+        works: batchWorks,
+        type: aiExerciseType,
+        exercisesPerWork: 3,
+      });
+      // Flatten all subjects from batch result
+      const allSubjects = result.exercises.flatMap(e =>
+        (e.subjects || []).map(s => `[${e.work.title}] ${s}`)
+      );
+      setGeneratedSubjects(allSubjects);
+      toast.success(`${result.totalGenerated} sujets générés !`);
+    } catch (error) {
+      console.error('Batch generation error:', error);
+      toast.error('Erreur lors de la génération en lot.');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
+  const toggleBatchWork = (work: Work) => {
+    const exists = batchWorks.some(w => w.title === work.title);
+    if (exists) {
+      setBatchWorks(batchWorks.filter(w => w.title !== work.title));
+    } else {
+      setBatchWorks([...batchWorks, work]);
+    }
   };
 
   const formatDate = (dateString: string | null) => {
@@ -273,6 +353,17 @@ export const TeacherDashboard: React.FC = () => {
                   >
                     <TrendingUp className="w-4 h-4 inline mr-2" />
                     Progression
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('ai')}
+                    className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
+                      activeTab === 'ai'
+                        ? 'border-purple-600 text-purple-600'
+                        : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    <Sparkles className="w-4 h-4 inline mr-2" />
+                    Génération IA
                   </button>
                 </div>
               </div>
@@ -417,6 +508,207 @@ export const TeacherDashboard: React.FC = () => {
                       </tbody>
                     </table>
                   )}
+                </div>
+              )}
+
+              {activeTab === 'ai' && (
+                <div className="space-y-6">
+                  {/* Mode toggle */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setBatchMode(false)}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        !batchMode
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      Génération simple
+                    </button>
+                    <button
+                      onClick={() => setBatchMode(true)}
+                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                        batchMode
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                      }`}
+                    >
+                      Génération en lot
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Generation form */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                      <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <Sparkles className="w-5 h-5 text-purple-500" />
+                        {batchMode ? 'Génération en lot' : 'Générer un sujet'}
+                      </h3>
+
+                      <div className="space-y-4">
+                        {/* Exercise type */}
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700 mb-1">
+                            Type d'exercice
+                          </label>
+                          <select
+                            value={aiExerciseType}
+                            onChange={(e) => setAiExerciseType(e.target.value as N8nExerciseType)}
+                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                          >
+                            <option value="Dissertation">Dissertation</option>
+                            <option value="Commentaire">Commentaire</option>
+                            <option value="Oral">Oral</option>
+                          </select>
+                        </div>
+
+                        {/* Work selection */}
+                        {!batchMode ? (
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                              Œuvre
+                            </label>
+                            <select
+                              onChange={(e) => {
+                                const [genreIdx, workIdx] = e.target.value.split('-').map(Number);
+                                if (!isNaN(genreIdx) && PROGRAM_2026[genreIdx]?.works[workIdx]) {
+                                  setAiSelectedWork(PROGRAM_2026[genreIdx].works[workIdx]);
+                                } else {
+                                  setAiSelectedWork(null);
+                                }
+                              }}
+                              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                            >
+                              <option value="">-- Sélectionner une œuvre --</option>
+                              {PROGRAM_2026.map((genre, gIdx) => (
+                                <optgroup key={genre.genre} label={genre.genre}>
+                                  {genre.works.map((work, wIdx) => (
+                                    <option key={work.title} value={`${gIdx}-${wIdx}`}>
+                                      {work.title} - {work.author}
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                            </select>
+                          </div>
+                        ) : (
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-2">
+                              Œuvres ({batchWorks.length} sélectionnées)
+                            </label>
+                            <div className="max-h-48 overflow-y-auto border border-slate-200 rounded-lg p-2 space-y-1">
+                              {PROGRAM_2026.flatMap((genre) =>
+                                genre.works.map((work) => (
+                                  <label
+                                    key={work.title}
+                                    className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer"
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={batchWorks.some(w => w.title === work.title)}
+                                      onChange={() => toggleBatchWork(work)}
+                                      className="w-4 h-4 text-purple-600 rounded"
+                                    />
+                                    <span className="text-sm text-slate-700">
+                                      {work.title} - {work.author}
+                                    </span>
+                                  </label>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Custom prompt */}
+                        {!batchMode && (
+                          <div>
+                            <label className="block text-sm font-medium text-slate-700 mb-1">
+                              Instructions personnalisées (optionnel)
+                            </label>
+                            <textarea
+                              value={aiCustomPrompt}
+                              onChange={(e) => setAiCustomPrompt(e.target.value)}
+                              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500"
+                              rows={2}
+                              placeholder="Ex: Sujet portant sur le thème de l'amour..."
+                            />
+                          </div>
+                        )}
+
+                        {/* Generate button */}
+                        <button
+                          onClick={batchMode ? handleGenerateBatch : handleGenerateSingle}
+                          disabled={aiGenerating || (!batchMode && !aiSelectedWork) || (batchMode && batchWorks.length === 0)}
+                          className="w-full py-3 bg-purple-600 text-white font-medium rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                        >
+                          {aiGenerating ? (
+                            <>
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                              Génération en cours...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-5 h-5" />
+                              {batchMode ? `Générer (${batchWorks.length * 3} sujets)` : 'Générer le sujet'}
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Generated subjects */}
+                    <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                          <BookOpen className="w-5 h-5 text-slate-400" />
+                          Sujets générés ({generatedSubjects.length})
+                        </h3>
+                        {generatedSubjects.length > 0 && (
+                          <button
+                            onClick={() => setGeneratedSubjects([])}
+                            className="text-sm text-slate-500 hover:text-slate-700 flex items-center gap-1"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                            Effacer
+                          </button>
+                        )}
+                      </div>
+
+                      {generatedSubjects.length === 0 ? (
+                        <div className="text-center py-8 text-slate-500">
+                          <Sparkles className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+                          <p>Les sujets générés apparaîtront ici</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                          {generatedSubjects.map((subject, idx) => (
+                            <div
+                              key={idx}
+                              className="p-4 bg-slate-50 rounded-lg border border-slate-200 group"
+                            >
+                              <p className="text-slate-700 text-sm whitespace-pre-wrap">{subject}</p>
+                              <button
+                                onClick={() => copyToClipboard(subject)}
+                                className="mt-2 text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <Copy className="w-3 h-3" />
+                                Copier
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Info banner */}
+                  <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 text-sm text-purple-800">
+                    <p className="font-medium mb-1">💡 Astuce</p>
+                    <p>
+                      Les sujets sont générés via n8n + DeepSeek. Vous pouvez les copier pour créer des devoirs
+                      ou les partager directement avec vos élèves.
+                    </p>
+                  </div>
                 </div>
               )}
             </>
