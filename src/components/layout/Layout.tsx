@@ -56,7 +56,15 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+      {/* Skip to main content link - visible on focus for keyboard users */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:px-4 focus:py-2 focus:bg-indigo-600 focus:text-white focus:rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-400"
+      >
+        Aller au contenu principal
+      </a>
+
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-sm" role="banner">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
@@ -71,7 +79,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
                   Bac Français 2026
                 </span>
               </Link>
-              <nav className="hidden md:ml-10 md:flex md:space-x-2">
+              <nav className="hidden md:ml-10 md:flex md:space-x-2" role="navigation" aria-label="Navigation principale">
                 <NavLink to="/" icon={<BookOpen />}>
                   Accueil
                 </NavLink>
@@ -115,6 +123,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
                     <button
                       onClick={signOut}
                       className="text-xs text-slate-500 hover:text-red-600 transition-colors"
+                      aria-label="Se déconnecter de votre compte"
                     >
                       Déconnexion
                     </button>
@@ -134,15 +143,18 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
               <button
                 className="md:hidden p-2 text-slate-600"
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                aria-label={isMobileMenuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+                aria-expanded={isMobileMenuOpen}
+                aria-controls="mobile-menu"
               >
-                {isMobileMenuOpen ? <X /> : <Menu />}
+                {isMobileMenuOpen ? <X aria-hidden="true" /> : <Menu aria-hidden="true" />}
               </button>
             </div>
           </div>
         </div>
         {/* Mobile Nav */}
         {isMobileMenuOpen && (
-          <div className="md:hidden border-t border-slate-100 bg-white">
+          <div id="mobile-menu" className="md:hidden border-t border-slate-100 bg-white" role="navigation" aria-label="Menu mobile">
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
               <Link
                 to="/"
@@ -211,11 +223,34 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({
         )}
       </header>
 
-      <main className="flex-grow">{children}</main>
+      <main id="main-content" className="flex-grow" role="main" tabIndex={-1}>
+        {children}
+      </main>
 
-      <footer className="bg-white border-t border-slate-200 py-8 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 text-center text-slate-500 text-sm">
-          <p>&copy; 2025 - Préparation EAF 2026. Excellence Académique.</p>
+      <footer className="bg-white border-t border-slate-200 py-8 mt-auto" role="contentinfo">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-slate-500 text-sm">
+              &copy; 2025 Neodromes - Préparation EAF 2026
+            </p>
+            <nav className="flex flex-wrap justify-center gap-4 text-sm" aria-label="Liens légaux">
+              <Link to="/mentions-legales" className="text-slate-500 hover:text-indigo-600 transition-colors">
+                Mentions légales
+              </Link>
+              <Link to="/cgv" className="text-slate-500 hover:text-indigo-600 transition-colors">
+                CGV
+              </Link>
+              <Link to="/confidentialite" className="text-slate-500 hover:text-indigo-600 transition-colors">
+                Confidentialité
+              </Link>
+              <a
+                href="mailto:contact@neodromes.eu"
+                className="text-slate-500 hover:text-indigo-600 transition-colors"
+              >
+                Contact
+              </a>
+            </nav>
+          </div>
         </div>
       </footer>
     </div>

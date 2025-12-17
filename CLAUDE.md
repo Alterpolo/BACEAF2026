@@ -4,87 +4,93 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Application de préparation au Bac Français 2026 (EAF - Épreuve Anticipée de Français). Elle permet aux élèves de réviser la méthodologie, de s'entraîner avec des sujets générés par IA (Gemini), et de consulter le programme officiel.
+Application de préparation au Bac Français 2026 (EAF - Épreuve Anticipée de Français). Elle permet aux élèves de réviser la méthodologie, de s'entraîner avec des sujets générés par IA (DeepSeek), et de consulter le programme officiel. Inclut un système d'abonnement Stripe et un mode enseignant.
 
 ## Commands
 
 ### Frontend (React)
 ```bash
-# Install dependencies
-npm install
-
-# Run development server (port 3000)
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
+npm install          # Install dependencies
+npm run dev          # Dev server (port 3000)
+npm run build        # Production build
+npm run preview      # Preview production build
 ```
 
 ### Backend (API Server)
 ```bash
 cd server
-
-# Install dependencies
-npm install
-
-# Run development server (port 3001)
-npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
+npm install          # Install dependencies
+npm run dev          # Dev server with hot reload (port 3001)
+npm run build        # Compile TypeScript
+npm start            # Run production build
 ```
 
 ## Environment Setup
 
-### Frontend
-Create `.env.local` with:
+### Frontend `.env.local`
 ```
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key
 VITE_API_URL=http://localhost:3001
 ```
 
-### Backend
-Create `server/.env` with:
+### Backend `server/.env`
 ```
-DEEPSEEK_API_KEY=your_deepseek_api_key_here
 PORT=3001
+DEEPSEEK_API_KEY=your_key          # Optional: runs mock if absent
+STRIPE_SECRET_KEY=your_key         # Optional: runs demo mode if absent
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_STUDENT_PREMIUM_MONTHLY=price_...
+STRIPE_PRICE_STUDENT_PREMIUM_YEARLY=price_...
+STRIPE_PRICE_STUDENT_TUTORING_MONTHLY=price_...
+STRIPE_PRICE_STUDENT_TUTORING_YEARLY=price_...
+STRIPE_PRICE_TEACHER_PRO_MONTHLY=price_...
+STRIPE_PRICE_TEACHER_PRO_YEARLY=price_...
 ```
 
 ## Architecture
 
 ### Tech Stack
-- **Frontend**: React 19 + Vite + Tailwind CSS v4 + React Router v7
+- **Frontend**: React 19 + Vite + Tailwind CSS v4 + React Router v7 + Framer Motion
 - **Backend**: Hono (Node.js) + TypeScript + Zod validation
-- **AI**: DeepSeek V3.2 API (proxied through backend)
+- **Database**: Supabase (PostgreSQL + Auth)
+- **AI**: DeepSeek V3.2 API (proxied through backend, mock fallback)
+- **Payments**: Stripe (subscriptions, customer portal)
 
 ### Directory Structure
 
 ```
-├── src/                    # Frontend React app
-│   ├── components/         # UI components
-│   │   ├── layout/         # Layout wrapper with navigation
-│   │   └── ui/             # Reusable UI primitives
-│   ├── contexts/           # React contexts (AuthContext)
-│   ├── services/           # API client (api.ts)
-│   ├── constants.ts        # Static data (program, methodology)
-│   ├── types.ts            # TypeScript interfaces
-│   └── App.tsx             # Root component with routing
-│
-└── server/                 # Backend API
-    └── src/
-        ├── routes/         # API route handlers
-        │   └── ai.ts       # AI endpoints (/api/ai/*)
-        ├── services/       # Business logic
-        │   └── gemini.ts   # Gemini API wrapper
-        ├── middleware/     # Middleware (rate limiting)
-        └── index.ts        # Server entry point
+src/
+├── components/           # React components
+│   ├── layout/           # Layout with navigation
+│   └── ui/               # Reusable primitives
+├── contexts/
+│   ├── AuthContext.tsx   # Supabase Auth session
+│   └── SubscriptionContext.tsx  # Plan/feature access
+├── services/
+│   ├── api.ts            # AI API client
+│   ├── database.ts       # Supabase CRUD (exercises, notes, progress)
+│   ├── payments.ts       # Subscription helpers
+│   ├── progression.ts    # Skill tracking
+│   └── tutoring.ts       # Tutoring session booking
+├── constants.ts          # Static data (program, methodology)
+└── types.ts              # TypeScript interfaces
+
+server/src/
+├── routes/
+│   ├── ai.ts             # /api/ai/* endpoints
+│   ├── payments.ts       # /api/payments/* (Stripe checkout, webhook)
+│   └── tutoring.ts       # /api/tutoring/* (session management)
+├── services/
+│   ├── deepseek.ts       # DeepSeek API wrapper
+│   ├── deepseek-mock.ts  # Demo mode fallback
+│   └── stripe.ts         # Stripe service (plans, checkout, portal)
+├── middleware/
+│   ├── rateLimiter.ts    # 20 req/min per IP on AI routes
+│   └── subscription.ts   # Plan verification
+└── index.ts              # Server entry point
+
+supabase/migrations/      # SQL migration files (001-004)
 ```
 
 ### API Endpoints
@@ -95,22 +101,39 @@ PORT=3001
 | `/api/ai/generate-subject-list` | POST | Generate 3 subjects |
 | `/api/ai/evaluate` | POST | Correct student work |
 | `/api/ai/work-analysis` | POST | Generate study guide |
+| `/api/payments/checkout` | POST | Create Stripe checkout |
+| `/api/payments/portal` | POST | Stripe customer portal |
+| `/api/payments/webhook` | POST | Stripe webhook handler |
+| `/api/tutoring/*` | Various | Tutoring session management |
 | `/health` | GET | Health check |
 
 ### Core Patterns
 
-**Authentication**: Supabase Auth with email/password and Google OAuth. Session managed via `AuthContext` (`src/contexts/AuthContext.tsx`). Supabase client initialized in `src/lib/supabase.ts`. Routes protected with `ProtectedRoute`.
+**Authentication**: Supabase Auth (email/password + Google OAuth). `AuthContext` manages session state. Routes protected via `ProtectedRoute` wrapper in `App.tsx`.
 
-**AI Integration**: Frontend calls backend API (`src/services/api.ts`), backend proxies to DeepSeek (`server/src/services/deepseek.ts`). API key stays server-side.
+**Subscription System**: Three tiers (free/premium/tutoring) + teacher plan. `SubscriptionContext` provides `isPremium`, `hasAI`, `canDoExercise` helpers. Free tier limited to 3 exercises/week.
 
-**Rate Limiting**: 20 requests/minute per IP on `/api/ai/*` routes.
+**AI Integration**: Frontend (`src/services/api.ts`) → Backend (`/api/ai/*`) → DeepSeek API. If `DEEPSEEK_API_KEY` missing, uses mock service for demo.
 
-**Validation**: Zod schemas validate all API inputs.
+**Payments**: Stripe checkout sessions with 1-day trial. Webhook updates `subscriptions` table in Supabase. Customer portal for managing subscriptions.
+
+**Database**: Supabase tables include `exercises`, `progress`, `notes`, `subscriptions`, `skills`, `user_skills`, `classes`, `tutors`, `tutoring_sessions`.
 
 ### Path Aliases
 
-`@/*` maps to project root (frontend only).
+`@/*` maps to project root (frontend only, configured in `tsconfig.json` and `vite.config.ts`).
 
-## Language
+## Important Notes
 
-Application UI and content are in French. Code comments and variable names may be in French or English.
+- Both backend services (DeepSeek, Stripe) run in **demo/mock mode** when API keys are missing - useful for local development
+- Rate limiting: 20 requests/minute per IP on `/api/ai/*` routes
+- Router uses `HashRouter` for compatibility with static hosting
+- UI language is French; code uses mix of French/English
+
+## Database Migrations
+
+Located in `supabase/migrations/`:
+1. `001_initial_schema.sql` - Users, exercises, progress, notes
+2. `002_teacher_mode.sql` - Classes, teacher-student relationships
+3. `003_methodology_progression.sql` - Skills, user_skills, achievements
+4. `004_stripe_subscriptions.sql` - Subscriptions, tutors, tutoring_sessions

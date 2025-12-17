@@ -1,12 +1,14 @@
-import React, { createContext, useState, useContext, useEffect } from "react";
+import React, { createContext, useState, useContext, useEffect, useCallback } from "react";
 import { Session, User as SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 import { User } from "../types";
+import { track, identifyUser } from "../services/analytics";
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  needsOnboarding: boolean;
   signInWithEmail: (
     email: string,
     password: string,
@@ -18,6 +20,7 @@ interface AuthContextType {
   ) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -45,32 +48,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+
+  // Fetch profile data including onboarding status
+  const fetchProfile = useCallback(async (userId: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('onboarding_completed, class_level, exam_date, focus_work')
+        .eq('id', userId)
+        .single();
+
+      // User needs onboarding if profile exists but onboarding not completed
+      setNeedsOnboarding(profile ? !profile.onboarding_completed : true);
+    } catch (error) {
+      console.error('Error fetching profile:', error);
+      setNeedsOnboarding(false);
+    }
+  }, []);
+
+  // Refresh profile data
+  const refreshProfile = useCallback(async () => {
+    if (session?.user?.id) {
+      await fetchProfile(session.user.id);
+    }
+  }, [session?.user?.id, fetchProfile]);
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(mapSupabaseUser(session?.user ?? null));
+
+      if (session?.user?.id) {
+        await fetchProfile(session.user.id);
+      }
+
       setLoading(false);
     });
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       setUser(mapSupabaseUser(session?.user ?? null));
+
+      if (session?.user?.id) {
+        await fetchProfile(session.user.id);
+      } else {
+        setNeedsOnboarding(false);
+      }
+
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [fetchProfile]);
 
   const signInWithEmail = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
+    if (!error && data.user) {
+      track('login', { method: 'email' });
+      identifyUser(data.user.id);
+    }
     return { error: error as Error | null };
   };
 
@@ -79,7 +123,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     password: string,
     name: string,
   ) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -88,6 +132,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         },
       },
     });
+    if (!error && data.user) {
+      track('signup', { method: 'email' });
+      identifyUser(data.user.id);
+    }
     return { error: error as Error | null };
   };
 
@@ -111,10 +159,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user,
         session,
         loading,
+        needsOnboarding,
         signInWithEmail,
         signUpWithEmail,
         signInWithGoogle,
         signOut,
+        refreshProfile,
       }}
     >
       {children}

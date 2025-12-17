@@ -1,13 +1,22 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import {
+
+// Utiliser le mock si DEEPSEEK_API_KEY n'est pas défini
+const useMock = !process.env.DEEPSEEK_API_KEY;
+const serviceModule = useMock
+  ? await import("../services/deepseek-mock")
+  : await import("../services/deepseek");
+
+const {
   generateSubject,
   generateSubjectList,
   evaluateStudentWork,
   generateWorkAnalysis,
-  ExerciseType,
-  Work,
-} from "../services/deepseek";
+} = serviceModule;
+
+if (useMock) {
+  console.log("🎭 Mode DEMO: Utilisation du mock DeepSeek (pas de clé API)");
+}
 
 export const aiRoutes = new Hono();
 

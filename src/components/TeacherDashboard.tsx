@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, BookOpen, Plus, Copy, Trash2, UserMinus, ClipboardList, TrendingUp } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useToast } from './ui/Toast';
 import {
   Class,
   Assignment,
@@ -21,6 +22,7 @@ import { ExerciseType, Work } from '../types';
 
 export const TeacherDashboard: React.FC = () => {
   const { user } = useAuth();
+  const toast = useToast();
   const [classes, setClasses] = useState<Class[]>([]);
   const [selectedClass, setSelectedClass] = useState<Class | null>(null);
   const [members, setMembers] = useState<ClassMember[]>([]);
@@ -135,7 +137,7 @@ export const TeacherDashboard: React.FC = () => {
 
   const copyJoinCode = (code: string) => {
     navigator.clipboard.writeText(code);
-    alert('Code copié !');
+    toast.success('Code copié !');
   };
 
   const formatDate = (dateString: string | null) => {

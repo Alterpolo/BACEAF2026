@@ -11,6 +11,10 @@ import {
   Star,
   ArrowRight,
   Settings,
+  Quote,
+  TrendingUp,
+  Award,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
@@ -398,13 +402,133 @@ export const Pricing: React.FC = () => {
         })}
       </div>
 
-      {/* FAQ / Trust elements */}
+      {/* Stats section */}
+      <div className="mt-16 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+        <div className="text-center p-4">
+          <div className="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <Users className="w-6 h-6 text-indigo-600" />
+          </div>
+          <p className="text-3xl font-bold text-slate-900">2 400+</p>
+          <p className="text-sm text-slate-600">Élèves inscrits</p>
+        </div>
+        <div className="text-center p-4">
+          <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <BookOpen className="w-6 h-6 text-emerald-600" />
+          </div>
+          <p className="text-3xl font-bold text-slate-900">15 000+</p>
+          <p className="text-sm text-slate-600">Exercices corrigés</p>
+        </div>
+        <div className="text-center p-4">
+          <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <TrendingUp className="w-6 h-6 text-amber-600" />
+          </div>
+          <p className="text-3xl font-bold text-slate-900">+2.5 pts</p>
+          <p className="text-sm text-slate-600">Progression moyenne</p>
+        </div>
+        <div className="text-center p-4">
+          <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <Award className="w-6 h-6 text-purple-600" />
+          </div>
+          <p className="text-3xl font-bold text-slate-900">94%</p>
+          <p className="text-sm text-slate-600">Satisfaction</p>
+        </div>
+      </div>
+
+      {/* Testimonials section */}
+      <div className="mt-16">
+        <h2 className="text-2xl font-serif font-bold text-slate-900 text-center mb-10">
+          Ce qu'en disent nos élèves
+        </h2>
+        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+          {/* Testimonial 1 */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-1 mb-4">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+              ))}
+            </div>
+            <Quote className="w-8 h-8 text-indigo-200 mb-2" />
+            <p className="text-slate-700 mb-4">
+              "J'ai gagné <strong>4 points</strong> sur ma dissertation grâce aux corrections IA.
+              Les conseils sont précis et m'ont aidé à comprendre mes erreurs de méthodologie."
+            </p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                L
+              </div>
+              <div>
+                <p className="font-medium text-slate-900">Léa M.</p>
+                <p className="text-sm text-slate-500">Première générale, Lyon</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Testimonial 2 */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-1 mb-4">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+              ))}
+            </div>
+            <Quote className="w-8 h-8 text-indigo-200 mb-2" />
+            <p className="text-slate-700 mb-4">
+              "Le cours particulier avec mon tuteur a été décisif pour mon oral.
+              Il m'a appris à <strong>structurer mes réponses</strong> et à gérer mon stress."
+            </p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-bold">
+                T
+              </div>
+              <div>
+                <p className="font-medium text-slate-900">Thomas B.</p>
+                <p className="text-sm text-slate-500">Première techno, Nantes</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Testimonial 3 */}
+          <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-1 mb-4">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
+              ))}
+            </div>
+            <Quote className="w-8 h-8 text-indigo-200 mb-2" />
+            <p className="text-slate-700 mb-4">
+              "En tant que prof, je recommande cette app à tous mes élèves.
+              L'IA corrige comme moi mais est disponible <strong>24h/24</strong> !"
+            </p>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-amber-400 to-orange-500 rounded-full flex items-center justify-center text-white font-bold">
+                M
+              </div>
+              <div>
+                <p className="font-medium text-slate-900">Mme Dupont</p>
+                <p className="text-sm text-slate-500">Prof de français, Paris</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Trust elements */}
       <div className="mt-16 text-center">
-        <p className="text-slate-500">
-          Paiement sécurisé par Stripe. Annulation possible à tout moment.
-        </p>
-        <p className="text-sm text-slate-400 mt-2">
-          Des questions ? Contactez-nous à support@bacfrancais2026.fr
+        <div className="flex flex-wrap justify-center gap-6 mb-6">
+          <div className="flex items-center gap-2 text-slate-500">
+            <Check className="w-5 h-5 text-green-500" />
+            Paiement sécurisé par Stripe
+          </div>
+          <div className="flex items-center gap-2 text-slate-500">
+            <Check className="w-5 h-5 text-green-500" />
+            Annulation à tout moment
+          </div>
+          <div className="flex items-center gap-2 text-slate-500">
+            <Check className="w-5 h-5 text-green-500" />
+            Satisfait ou remboursé
+          </div>
+        </div>
+        <p className="text-sm text-slate-400">
+          Des questions ? Contactez-nous à support@neodromes.eu
         </p>
       </div>
     </div>

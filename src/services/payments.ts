@@ -4,6 +4,7 @@
  */
 
 import { loadStripe, Stripe } from '@stripe/stripe-js';
+import { track } from './analytics';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 const STRIPE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
@@ -108,6 +109,12 @@ export async function createCheckout(params: {
   }
 
   const { url } = await response.json();
+
+  // Track checkout started before redirect
+  track('checkout_started', {
+    plan: params.plan,
+    interval: params.interval,
+  });
 
   // Redirect to Stripe Checkout
   if (url) {

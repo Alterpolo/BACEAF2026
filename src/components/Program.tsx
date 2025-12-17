@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { PROGRAM_2026, WORKS_ANALYSIS_DB } from '../constants';
 import { Genre, Work, WorkAnalysis } from '../types';
 import { Button } from './Button';
@@ -15,14 +15,63 @@ export const Program: React.FC = () => {
     return WORKS_ANALYSIS_DB[title] || null;
   };
 
-  const handleOpenWork = (work: Work) => {
+  const modalRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  const handleOpenWork = (work: Work, triggerElement?: HTMLButtonElement) => {
+    if (triggerElement) {
+      triggerRef.current = triggerElement;
+    }
     setViewingWork(work);
     setActiveTab('resume');
   };
 
-  const closeWork = () => {
+  const closeWork = useCallback(() => {
     setViewingWork(null);
-  };
+    // Return focus to trigger element
+    setTimeout(() => {
+      triggerRef.current?.focus();
+    }, 0);
+  }, []);
+
+  // Handle escape key and focus trap
+  useEffect(() => {
+    if (!viewingWork) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeWork();
+        return;
+      }
+
+      // Focus trap
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusableElements = modalRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey && document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement?.focus();
+        } else if (!e.shiftKey && document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement?.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    // Focus first focusable element in modal
+    setTimeout(() => {
+      const closeButton = modalRef.current?.querySelector<HTMLButtonElement>('button[aria-label="Fermer"]');
+      closeButton?.focus();
+    }, 100);
+
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [viewingWork, closeWork]);
 
   const getShortLabel = (genre: Genre) => {
     if (genre.includes('Roman')) return 'Roman';
@@ -119,12 +168,14 @@ export const Program: React.FC = () => {
                 </h3>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" role="list">
                 {genreGroup.works.map((work, idx) => (
-                  <div 
-                    key={idx} 
-                    className="group bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden cursor-pointer"
-                    onClick={() => handleOpenWork(work)}
+                  <button
+                    key={idx}
+                    role="listitem"
+                    className="group bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 flex flex-col overflow-hidden cursor-pointer text-left focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    onClick={(e) => handleOpenWork(work, e.currentTarget)}
+                    aria-label={`Voir la fiche de ${work.title} par ${work.author}`}
                   >
                     <div className={`h-2 w-full ${
                       genreColor === 'amber' ? 'bg-amber-500' :
@@ -145,13 +196,13 @@ export const Program: React.FC = () => {
                           <span className="not-italic font-bold text-xs text-slate-400 block mb-1">PARCOURS</span>
                           "{work.parcours}"
                         </div>
-                        <div className="mt-4 flex items-center text-indigo-600 font-semibold text-sm opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0">
+                        <div className="mt-4 flex items-center text-indigo-600 font-semibold text-sm opacity-0 group-hover:opacity-100 group-focus:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0 group-focus:translate-y-0" aria-hidden="true">
                            Voir la fiche complète
                            <svg className="w-4 h-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </section>
@@ -161,9 +212,21 @@ export const Program: React.FC = () => {
 
       {/* Modal Overlay */}
       {viewingWork && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" onClick={closeWork}></div>
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in ring-1 ring-white/20">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+        >
+          <div
+            className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+            onClick={closeWork}
+            aria-hidden="true"
+          ></div>
+          <div
+            ref={modalRef}
+            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-fade-in ring-1 ring-white/20"
+          >
             
             {/* Modal Header */}
             <div className="bg-white border-b border-slate-200 p-6 md:p-8 flex justify-between items-start shrink-0 z-10">
@@ -171,7 +234,7 @@ export const Program: React.FC = () => {
                 <div className="flex items-center gap-2 mb-2">
                    <span className="px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider rounded-full">Fiche de Révision</span>
                 </div>
-                <h3 className="text-3xl md:text-4xl font-serif font-bold text-slate-900">{viewingWork.title}</h3>
+                <h3 id="modal-title" className="text-3xl md:text-4xl font-serif font-bold text-slate-900">{viewingWork.title}</h3>
                 <p className="text-slate-500 text-xl mt-1 font-medium">{viewingWork.author}</p>
               </div>
               <button 

@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Lock, Sparkles, AlertTriangle } from "lucide-react";
+import { Lock, Sparkles, AlertTriangle, Check, Zap, Clock, BookOpen, MessageSquare } from "lucide-react";
 import { ExerciseType, Genre, Work } from "../types";
 import { PROGRAM_2026 } from "../constants";
 import {
@@ -11,6 +11,8 @@ import {
 import { saveExercise, updateExercise } from "../services/database";
 import { Button } from "./Button";
 import { useSubscription } from "../contexts/SubscriptionContext";
+import { useToast } from "./ui/Toast";
+import { track } from "../services/analytics";
 
 export const Training: React.FC = () => {
   const {
@@ -21,6 +23,16 @@ export const Training: React.FC = () => {
     remainingExercises,
     refreshSubscription,
   } = useSubscription();
+  const toast = useToast();
+  const limitTrackedRef = useRef(false);
+
+  // Track when user hits the limit (only once per session)
+  useEffect(() => {
+    if (!canDoExercise && step === 1 && !limitTrackedRef.current) {
+      limitTrackedRef.current = true;
+      track('limit_reached', { remaining_exercises: remainingExercises });
+    }
+  }, [canDoExercise, step, remainingExercises]);
 
   const [exerciseType, setExerciseType] = useState<ExerciseType>(
     ExerciseType.DISSERTATION,
@@ -60,7 +72,7 @@ export const Training: React.FC = () => {
       setSubject(generated);
       setStep(2);
     } catch (err) {
-      alert("Erreur lors de la génération du sujet.");
+      toast.error("Erreur lors de la génération du sujet.");
     } finally {
       setLoading(false);
     }
@@ -76,7 +88,7 @@ export const Training: React.FC = () => {
       setSubjectList(list);
       setStep(1.5);
     } catch (err) {
-      alert("Erreur lors de la génération de la liste.");
+      toast.error("Erreur lors de la génération de la liste.");
     } finally {
       setLoading(false);
     }
@@ -112,7 +124,7 @@ export const Training: React.FC = () => {
         );
         setStep(3);
       } catch (err) {
-        alert("Erreur lors de la sauvegarde.");
+        toast.error("Erreur lors de la sauvegarde.");
       } finally {
         setLoading(false);
       }
@@ -150,7 +162,7 @@ export const Training: React.FC = () => {
       // Refresh subscription to update exercise count
       await refreshSubscription();
     } catch (err) {
-      alert("Erreur lors de l'évaluation.");
+      toast.error("Erreur lors de l'évaluation.");
     } finally {
       setLoading(false);
     }
@@ -178,24 +190,112 @@ export const Training: React.FC = () => {
   // Check if user can do exercise (free plan limit)
   if (!canDoExercise && step === 1) {
     return (
-      <div className="max-w-2xl mx-auto p-8 text-center">
-        <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <AlertTriangle className="w-8 h-8 text-orange-600" />
+      <div className="max-w-3xl mx-auto p-6 md:p-8">
+        {/* Header with urgency */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-full text-sm font-medium mb-4">
+            <Clock className="w-4 h-4" />
+            Limite atteinte - Renouvellement dans 7 jours
+          </div>
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 mb-3">
+            Tu as épuisé tes 3 exercices gratuits
+          </h2>
+          <p className="text-slate-600 max-w-xl mx-auto">
+            Ne laisse pas une semaine d'entraînement passer ! Les élèves Premium
+            s'entraînent <strong>4x plus</strong> et obtiennent de meilleurs résultats.
+          </p>
         </div>
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">
-          Limite hebdomadaire atteinte
-        </h2>
-        <p className="text-slate-600 mb-6">
-          Vous avez utilisé vos 3 exercices gratuits cette semaine. Passez à
-          Premium pour un accès illimité et la correction par IA.
+
+        {/* Feature comparison cards */}
+        <div className="grid md:grid-cols-2 gap-4 mb-8">
+          {/* Free plan (current) */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-slate-200 rounded-lg flex items-center justify-center">
+                <BookOpen className="w-4 h-4 text-slate-500" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-slate-700">Plan Gratuit</h3>
+                <p className="text-xs text-slate-500">Ce que tu as maintenant</p>
+              </div>
+            </div>
+            <ul className="space-y-2 text-sm text-slate-600">
+              <li className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-slate-400" />
+                3 exercices par semaine
+              </li>
+              <li className="flex items-center gap-2 opacity-50">
+                <Lock className="w-4 h-4 text-slate-400" />
+                <span className="line-through">Correction par IA</span>
+              </li>
+              <li className="flex items-center gap-2 opacity-50">
+                <Lock className="w-4 h-4 text-slate-400" />
+                <span className="line-through">Suivi de progression</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Premium plan (upgrade) */}
+          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 bg-indigo-600 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
+              POPULAIRE
+            </div>
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
+                <Sparkles className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-indigo-900">Premium</h3>
+                <p className="text-xs text-indigo-600">Débloquer maintenant</p>
+              </div>
+            </div>
+            <ul className="space-y-2 text-sm text-indigo-900">
+              <li className="flex items-center gap-2">
+                <Check className="w-4 h-4 text-indigo-600" />
+                <strong>Exercices illimités</strong>
+              </li>
+              <li className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-indigo-600" />
+                Correction IA instantanée
+              </li>
+              <li className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-indigo-600" />
+                Conseils personnalisés
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        {/* Social proof */}
+        <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4 mb-6 text-center">
+          <p className="text-emerald-800 text-sm">
+            <strong>+2 400 élèves</strong> utilisent Bac Français 2026 pour préparer leur EAF
+          </p>
+        </div>
+
+        {/* CTAs */}
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <Link
+            to="/tarifs"
+            onClick={() => track('upgrade_cta_clicked', { source: 'limit_reached', cta: 'premium_trial' })}
+            className="inline-flex items-center justify-center gap-2 px-8 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-all hover:scale-105 shadow-lg shadow-indigo-200"
+          >
+            <Sparkles className="w-5 h-5" />
+            Essayer Premium (1 jour gratuit)
+          </Link>
+          <Link
+            to="/tarifs"
+            onClick={() => track('upgrade_cta_clicked', { source: 'limit_reached', cta: 'view_plans' })}
+            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-white text-slate-700 font-medium rounded-xl border border-slate-200 hover:bg-slate-50 transition-colors"
+          >
+            Voir tous les plans
+          </Link>
+        </div>
+
+        {/* Trust indicators */}
+        <p className="text-center text-xs text-slate-500 mt-4">
+          Annulation à tout moment · Paiement sécurisé · Satisfait ou remboursé
         </p>
-        <Link
-          to="/tarifs"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white font-medium rounded-lg hover:bg-indigo-700 transition-colors"
-        >
-          <Sparkles className="w-5 h-5" />
-          Passer à Premium
-        </Link>
       </div>
     );
   }
@@ -275,12 +375,14 @@ export const Training: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
+            <label htmlFor="work-select" className="block text-sm font-medium text-slate-700 mb-2">
               Choisir une œuvre du programme
             </label>
             <div className="relative">
               <select
+                id="work-select"
                 className="w-full p-3 bg-white border border-slate-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 appearance-none pr-10 text-slate-900"
+                aria-describedby={exerciseType === ExerciseType.COMMENTAIRE && !selectedWork ? "work-help" : undefined}
                 onChange={(e) => {
                   const [genreIdx, workIdx] = e.target.value
                     .split("-")
@@ -307,7 +409,7 @@ export const Training: React.FC = () => {
                   </optgroup>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-600">
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-slate-600" aria-hidden="true">
                 <svg
                   className="fill-current h-4 w-4"
                   xmlns="http://www.w3.org/2000/svg"
@@ -318,7 +420,7 @@ export const Training: React.FC = () => {
               </div>
             </div>
             {exerciseType === ExerciseType.COMMENTAIRE && !selectedWork && (
-              <p className="text-xs text-slate-500 mt-1">
+              <p id="work-help" className="text-xs text-slate-500 mt-1">
                 Si aucune œuvre n'est sélectionnée, un texte aléatoire hors
                 programme sera généré.
               </p>
@@ -407,12 +509,13 @@ export const Training: React.FC = () => {
           {step === 2 && (
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label htmlFor="student-answer" className="block text-sm font-medium text-slate-700 mb-2">
                   {exerciseType === ExerciseType.ORAL
                     ? "Votre réponse à l'oral (résumée) :"
                     : "Votre Problématique et votre Plan détaillé :"}
                 </label>
                 <textarea
+                  id="student-answer"
                   className="w-full h-48 p-4 border border-slate-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
                   placeholder={
                     exerciseType === ExerciseType.DISSERTATION
@@ -421,6 +524,11 @@ export const Training: React.FC = () => {
                   }
                   value={studentInput}
                   onChange={(e) => setStudentInput(e.target.value)}
+                  aria-label={
+                    exerciseType === ExerciseType.ORAL
+                      ? "Votre réponse à l'oral"
+                      : "Votre problématique et plan détaillé"
+                  }
                 />
               </div>
               <div className="flex gap-3">

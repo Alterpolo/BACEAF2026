@@ -154,7 +154,7 @@ tutoring.post('/sessions', async (c) => {
       }, 403);
     }
 
-    const hoursNeeded = data.durationMinutes / 60;
+    const hoursNeeded = (data.durationMinutes ?? 60) / 60;
     if ((subscription.tutoring_hours_remaining || 0) < hoursNeeded) {
       return c.json({
         error: 'Heures de cours insuffisantes',
@@ -184,12 +184,15 @@ tutoring.post('/sessions', async (c) => {
       .eq('id', data.tutorId)
       .single();
 
+    // Extract tutor name from profile relation (array from join)
+    const tutorName = (tutor?.profile as { name: string }[] | null)?.[0]?.name ?? 'votre tuteur';
+
     // Notify student
     await supabase.from('notifications').insert({
       user_id: data.studentId,
       type: 'tutoring',
       title: 'Cours réservé',
-      message: `Cours avec ${tutor?.profile?.name} le ${new Date(data.scheduledAt).toLocaleDateString('fr-FR', {
+      message: `Cours avec ${tutorName} le ${new Date(data.scheduledAt).toLocaleDateString('fr-FR', {
         weekday: 'long',
         day: 'numeric',
         month: 'long',
@@ -411,17 +414,12 @@ tutoring.delete('/sessions/:sessionId', async (c) => {
       })
       .eq('id', sessionId);
 
-    // Refund hours
+    // Refund hours using atomic RPC (prevents race condition)
     const hoursToRefund = session.duration_minutes / 60;
-    await supabase
-      .from('subscriptions')
-      .update({
-        tutoring_hours_remaining: supabase.rpc('add_hours', {
-          current: 'tutoring_hours_remaining',
-          add: hoursToRefund
-        }),
-      })
-      .eq('user_id', session.student_id);
+    await supabase.rpc('increment_tutoring_hours', {
+      p_user_id: session.student_id,
+      p_hours: hoursToRefund,
+    });
 
     return c.json({ message: 'Session annulée, heures remboursées' });
   } catch (error) {

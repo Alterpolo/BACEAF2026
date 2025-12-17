@@ -9,6 +9,8 @@ import {
   Award,
   Target,
   ChevronRight,
+  Users,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import {
@@ -26,6 +28,7 @@ import {
 } from "../services/progression";
 import { ExerciseType } from "../types";
 import { SubscriptionBanner } from "./SubscriptionBanner";
+import { DashboardSkeleton } from "./ui/Skeleton";
 
 export const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -90,9 +93,8 @@ export const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="max-w-5xl mx-auto p-8 text-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-        <p className="mt-4 text-slate-600">Chargement du tableau de bord...</p>
+      <div className="max-w-6xl mx-auto p-4 md:p-8">
+        <DashboardSkeleton />
       </div>
     );
   }
@@ -103,6 +105,24 @@ export const Dashboard: React.FC = () => {
     <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-8 animate-fade-in">
       {/* Subscription Banner */}
       <SubscriptionBanner />
+
+      {/* Social Proof Banner */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-xl p-4 text-white">
+        <div className="flex flex-wrap items-center justify-center gap-6 md:gap-12 text-sm">
+          <div className="flex items-center gap-2">
+            <Users className="w-5 h-5 text-indigo-400" />
+            <span><strong className="text-indigo-300">2 400+</strong> élèves inscrits</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-emerald-400" />
+            <span><strong className="text-emerald-300">15 000+</strong> exercices corrigés par IA</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 text-amber-400" />
+            <span><strong className="text-amber-300">+2.5 pts</strong> progression moyenne</span>
+          </div>
+        </div>
+      </div>
 
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">

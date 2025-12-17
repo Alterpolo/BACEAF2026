@@ -17,6 +17,7 @@ import {
   BillingInterval,
 } from '../services/stripe';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '../middleware/subscription';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
@@ -163,15 +164,23 @@ payments.post('/portal', async (c) => {
 /**
  * GET /api/payments/subscription/:userId
  * Récupère le statut d'abonnement d'un utilisateur
+ * SECURED: Requires authentication and user can only access their own subscription
  */
-payments.get('/subscription/:userId', async (c) => {
+payments.get('/subscription/:userId', requireAuth, async (c) => {
   try {
-    const userId = c.req.param('userId');
+    const requestedUserId = c.req.param('userId');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const authenticatedUserId = (c as any).get('userId') as string;
+
+    // Security: Users can only access their own subscription
+    if (requestedUserId !== authenticatedUserId) {
+      return c.json({ error: 'Accès non autorisé', code: 'FORBIDDEN' }, 403);
+    }
 
     const { data: subscription, error } = await supabase
       .from('subscriptions')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_id', requestedUserId)
       .single();
 
     if (error) {
@@ -204,6 +213,7 @@ payments.get('/subscription/:userId', async (c) => {
 /**
  * POST /api/payments/webhook
  * Webhook Stripe pour gérer les événements
+ * Uses upsert pattern to prevent race conditions
  */
 payments.post('/webhook', async (c) => {
   try {
@@ -215,24 +225,40 @@ payments.post('/webhook', async (c) => {
     const body = await c.req.text();
     const event = constructWebhookEvent(body, signature);
 
-    // Check if event already processed (idempotency)
-    const { data: existingEvent } = await supabase
+    // Atomic upsert to handle race conditions
+    // onConflict: if event already exists, do nothing (returns null)
+    const { data: insertedEvent, error: upsertError } = await supabase
       .from('stripe_events')
-      .select('id')
-      .eq('id', event.id)
+      .upsert(
+        {
+          id: event.id,
+          event_type: event.type,
+          stripe_customer_id: (event.data.object as any).customer,
+          data: event.data.object,
+          processed: false,
+        },
+        {
+          onConflict: 'id',
+          ignoreDuplicates: true, // Don't update if exists
+        }
+      )
+      .select()
       .single();
 
-    if (existingEvent) {
+    // If no row returned, event was already processed (duplicate)
+    if (!insertedEvent) {
+      console.log(JSON.stringify({
+        type: 'webhook_duplicate',
+        eventId: event.id,
+        eventType: event.type,
+      }));
       return c.json({ received: true, message: 'Event already processed' });
     }
 
-    // Store event
-    await supabase.from('stripe_events').insert({
-      id: event.id,
-      event_type: event.type,
-      stripe_customer_id: (event.data.object as any).customer,
-      data: event.data.object,
-    });
+    if (upsertError) {
+      console.error('Stripe event upsert error:', upsertError);
+      // Don't fail webhook - Stripe will retry
+    }
 
     // Handle event
     switch (event.type) {
@@ -296,10 +322,11 @@ async function handleCheckoutComplete(session: any) {
   const stripeSubscription = await getSubscription(subscriptionId);
   if (!stripeSubscription) return;
 
-  const priceId = stripeSubscription.items.data[0]?.price.id;
+  const subscriptionItem = stripeSubscription.items.data[0];
+  const priceId = subscriptionItem?.price.id;
   const planInfo = getPlanFromPriceId(priceId);
 
-  // Update subscription in database
+  // Update subscription in database (current_period_* are on SubscriptionItem in Stripe SDK v20+)
   const updateData: Record<string, any> = {
     stripe_customer_id: customerId,
     stripe_subscription_id: subscriptionId,
@@ -307,8 +334,8 @@ async function handleCheckoutComplete(session: any) {
     plan: planInfo?.plan || 'student_premium',
     billing_interval: planInfo?.interval || 'month',
     status: stripeSubscription.status === 'trialing' ? 'trialing' : 'active',
-    current_period_start: new Date(stripeSubscription.current_period_start * 1000).toISOString(),
-    current_period_end: new Date(stripeSubscription.current_period_end * 1000).toISOString(),
+    current_period_start: new Date(subscriptionItem.current_period_start * 1000).toISOString(),
+    current_period_end: new Date(subscriptionItem.current_period_end * 1000).toISOString(),
   };
 
   // Handle trial
@@ -320,7 +347,7 @@ async function handleCheckoutComplete(session: any) {
   // Set tutoring hours for tutoring plan
   if (planInfo?.plan === 'student_tutoring') {
     updateData.tutoring_hours_remaining = 2;
-    updateData.tutoring_hours_reset_date = new Date(stripeSubscription.current_period_end * 1000).toISOString();
+    updateData.tutoring_hours_reset_date = new Date(subscriptionItem.current_period_end * 1000).toISOString();
   }
 
   await supabase
