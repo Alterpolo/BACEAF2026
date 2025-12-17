@@ -22,9 +22,9 @@ if (DEMO_MODE) {
 export const PLANS = {
   free: {
     name: "Gratuit",
-    features: ["3 exercices/semaine", "Méthodologie", "Sans IA"],
+    features: ["3 exercices IA/semaine", "Méthodologie", "Fiches de révision"],
     exercisesPerWeek: 3,
-    hasAI: false,
+    hasAI: true, // Free users have LIMITED AI access (3 exercises/week)
     hasTutoring: false,
   },
   student_premium: {

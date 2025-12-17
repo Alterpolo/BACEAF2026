@@ -1,18 +1,28 @@
 /**
  * Tutoring Routes
  * Endpoints pour la gestion des cours particuliers
+ *
+ * Security:
+ * - Public routes: /tutors, /slots (read-only listings)
+ * - Protected routes: /sessions/* (require auth + userId validation)
  */
 
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { createClient } from '@supabase/supabase-js';
+import { requireAuth } from '../middleware/subscription';
 
 const supabase = createClient(
   process.env.SUPABASE_URL || '',
   process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 );
 
-const tutoring = new Hono();
+// Type for context with our custom variables
+type Variables = {
+  userId: string;
+};
+
+const tutoring = new Hono<{ Variables: Variables }>();
 
 // ============================================
 // VALIDATION SCHEMAS
@@ -135,16 +145,23 @@ tutoring.get('/slots', async (c) => {
 /**
  * POST /api/tutoring/sessions
  * Réserver un cours
+ * SECURED: Requires authentication and validates studentId matches authenticated user
  */
-tutoring.post('/sessions', async (c) => {
+tutoring.post('/sessions', requireAuth, async (c) => {
   try {
     const data = await parseBody(c, BookSessionSchema);
+    const authenticatedUserId = c.get('userId');
+
+    // Security: Verify studentId in body matches authenticated user
+    if (data.studentId !== authenticatedUserId) {
+      return c.json({ error: 'Accès non autorisé', code: 'FORBIDDEN' }, 403);
+    }
 
     // Check if student has tutoring plan
     const { data: subscription } = await supabase
       .from('subscriptions')
       .select('plan, tutoring_hours_remaining')
-      .eq('user_id', data.studentId)
+      .eq('user_id', authenticatedUserId)
       .single();
 
     if (!subscription || subscription.plan !== 'student_tutoring') {
@@ -235,12 +252,19 @@ tutoring.post('/sessions', async (c) => {
 /**
  * GET /api/tutoring/sessions/:userId
  * Sessions d'un utilisateur (élève ou tuteur)
+ * SECURED: Requires authentication and user can only access their own sessions
  */
-tutoring.get('/sessions/:userId', async (c) => {
+tutoring.get('/sessions/:userId', requireAuth, async (c) => {
   try {
-    const userId = c.req.param('userId');
+    const requestedUserId = c.req.param('userId');
+    const authenticatedUserId = c.get('userId');
     const status = c.req.query('status');
     const upcoming = c.req.query('upcoming') === 'true';
+
+    // Security: Users can only access their own sessions
+    if (requestedUserId !== authenticatedUserId) {
+      return c.json({ error: 'Accès non autorisé', code: 'FORBIDDEN' }, 403);
+    }
 
     // Get sessions as student
     let query = supabase
@@ -252,7 +276,7 @@ tutoring.get('/sessions/:userId', async (c) => {
           profile:profiles(name, avatar_url)
         )
       `)
-      .eq('student_id', userId);
+      .eq('student_id', requestedUserId);
 
     if (status) {
       query = query.eq('status', status);
@@ -298,11 +322,38 @@ tutoring.get('/sessions/:userId', async (c) => {
 /**
  * PATCH /api/tutoring/sessions/:sessionId
  * Mettre à jour une session
+ * SECURED: Requires authentication and user must be session owner (student or tutor)
  */
-tutoring.patch('/sessions/:sessionId', async (c) => {
+tutoring.patch('/sessions/:sessionId', requireAuth, async (c) => {
   try {
     const sessionId = c.req.param('sessionId');
+    const authenticatedUserId = c.get('userId');
     const data = await parseBody(c, UpdateSessionSchema);
+
+    // First, verify the user owns this session (as student or tutor)
+    const { data: existingSession } = await supabase
+      .from('tutoring_sessions')
+      .select('student_id, tutor_id')
+      .eq('id', sessionId)
+      .single();
+
+    if (!existingSession) {
+      return c.json({ error: 'Session non trouvée', code: 'NOT_FOUND' }, 404);
+    }
+
+    // Get tutor's user_id to check ownership
+    const { data: tutor } = await supabase
+      .from('tutors')
+      .select('user_id')
+      .eq('id', existingSession.tutor_id)
+      .single();
+
+    const isStudent = existingSession.student_id === authenticatedUserId;
+    const isTutor = tutor?.user_id === authenticatedUserId;
+
+    if (!isStudent && !isTutor) {
+      return c.json({ error: 'Accès non autorisé', code: 'FORBIDDEN' }, 403);
+    }
 
     const updateData: Record<string, any> = {};
 
@@ -377,10 +428,12 @@ tutoring.patch('/sessions/:sessionId', async (c) => {
 /**
  * DELETE /api/tutoring/sessions/:sessionId
  * Annuler une session
+ * SECURED: Requires authentication and user must be the student who booked the session
  */
-tutoring.delete('/sessions/:sessionId', async (c) => {
+tutoring.delete('/sessions/:sessionId', requireAuth, async (c) => {
   try {
     const sessionId = c.req.param('sessionId');
+    const authenticatedUserId = c.get('userId');
 
     // Get session details first
     const { data: session } = await supabase
@@ -390,7 +443,12 @@ tutoring.delete('/sessions/:sessionId', async (c) => {
       .single();
 
     if (!session) {
-      return c.json({ error: 'Session non trouvée' }, 404);
+      return c.json({ error: 'Session non trouvée', code: 'NOT_FOUND' }, 404);
+    }
+
+    // Security: Only the student who booked can cancel
+    if (session.student_id !== authenticatedUserId) {
+      return c.json({ error: 'Accès non autorisé', code: 'FORBIDDEN' }, 403);
     }
 
     // Check if can be canceled (e.g., at least 24h before)

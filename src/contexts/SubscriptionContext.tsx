@@ -62,9 +62,9 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
         exercisesThisWeek: 0,
         exercisesLimit: 3,
         tutoringHoursRemaining: 0,
-        hasAI: false,
+        hasAI: true, // Free users have LIMITED AI access (3 exercises/week)
         hasTutoring: false,
-        features: ['3 exercices/semaine', 'Méthodologie', 'Sans IA'],
+        features: ['3 exercices IA/semaine', 'Méthodologie', 'Fiches de révision'],
       });
     } finally {
       setLoading(false);

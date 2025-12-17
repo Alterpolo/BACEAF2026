@@ -1,9 +1,13 @@
 /**
  * Service Tutoring Frontend
  * Appels API pour les cours particuliers
+ *
+ * Security:
+ * - Public routes (tutors, slots): No auth required
+ * - Session routes: Require auth, server validates userId
  */
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { get, post, patch, del } from './apiClient';
 
 // ============================================
 // TYPES
@@ -59,19 +63,15 @@ export interface BookingParams {
 // ============================================
 
 /**
- * Get available tutors
+ * Get available tutors (public, no auth required)
  */
 export async function getTutors(): Promise<Tutor[]> {
-  const response = await fetch(`${API_URL}/api/tutoring/tutors`);
-  if (!response.ok) {
-    throw new Error('Erreur lors de la récupération des tuteurs');
-  }
-  const data = await response.json();
+  const data = await get<{ tutors: Tutor[] }>('/api/tutoring/tutors', false);
   return data.tutors;
 }
 
 /**
- * Get available time slots
+ * Get available time slots (public, no auth required)
  */
 export async function getAvailableSlots(params: {
   startDate: string;
@@ -86,34 +86,21 @@ export async function getAvailableSlots(params: {
     queryParams.set('tutorId', params.tutorId);
   }
 
-  const response = await fetch(`${API_URL}/api/tutoring/slots?${queryParams}`);
-  if (!response.ok) {
-    throw new Error('Erreur lors de la récupération des créneaux');
-  }
-  const data = await response.json();
+  const data = await get<{ slots: TimeSlot[] }>(`/api/tutoring/slots?${queryParams}`, false);
   return data.slots;
 }
 
 /**
- * Book a tutoring session
+ * Book a tutoring session (requires auth)
+ * Note: Server validates studentId matches authenticated user
  */
 export async function bookSession(params: BookingParams): Promise<{ sessionId: string }> {
-  const response = await fetch(`${API_URL}/api/tutoring/sessions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Erreur lors de la réservation');
-  }
-
-  return response.json();
+  return post<{ sessionId: string }>('/api/tutoring/sessions', params);
 }
 
 /**
- * Get user's tutoring sessions
+ * Get user's tutoring sessions (requires auth)
+ * Note: Server validates userId matches authenticated user
  */
 export async function getUserSessions(userId: string, options?: {
   status?: string;
@@ -123,16 +110,15 @@ export async function getUserSessions(userId: string, options?: {
   if (options?.status) queryParams.set('status', options.status);
   if (options?.upcoming) queryParams.set('upcoming', 'true');
 
-  const response = await fetch(`${API_URL}/api/tutoring/sessions/${userId}?${queryParams}`);
-  if (!response.ok) {
-    throw new Error('Erreur lors de la récupération des sessions');
-  }
-  const data = await response.json();
+  const data = await get<{ sessions: TutoringSession[] }>(
+    `/api/tutoring/sessions/${userId}?${queryParams}`
+  );
   return data.sessions;
 }
 
 /**
- * Update a session
+ * Update a session (requires auth)
+ * Note: Server validates user owns the session
  */
 export async function updateSession(sessionId: string, params: {
   status?: 'scheduled' | 'completed' | 'canceled' | 'no_show';
@@ -141,30 +127,15 @@ export async function updateSession(sessionId: string, params: {
   studentRating?: number;
   studentFeedback?: string;
 }): Promise<void> {
-  const response = await fetch(`${API_URL}/api/tutoring/sessions/${sessionId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(params),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Erreur lors de la mise à jour');
-  }
+  await patch<{ session: unknown }>(`/api/tutoring/sessions/${sessionId}`, params);
 }
 
 /**
- * Cancel a session
+ * Cancel a session (requires auth)
+ * Note: Server validates user is the student who booked
  */
 export async function cancelSession(sessionId: string): Promise<void> {
-  const response = await fetch(`${API_URL}/api/tutoring/sessions/${sessionId}`, {
-    method: 'DELETE',
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Erreur lors de l\'annulation');
-  }
+  await del<{ message: string }>(`/api/tutoring/sessions/${sessionId}`);
 }
 
 // ============================================

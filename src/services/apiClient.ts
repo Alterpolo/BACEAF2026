@@ -117,6 +117,20 @@ export function post<T>(endpoint: string, body: unknown, requireAuth = true): Pr
 }
 
 /**
+ * PATCH request with auth
+ */
+export function patch<T>(endpoint: string, body: unknown, requireAuth = true): Promise<T> {
+  return apiRequest<T>(endpoint, { method: 'PATCH', body, requireAuth });
+}
+
+/**
+ * DELETE request with auth
+ */
+export function del<T>(endpoint: string, requireAuth = true): Promise<T> {
+  return apiRequest<T>(endpoint, { method: 'DELETE', requireAuth });
+}
+
+/**
  * Helper: Check if error is auth-related
  */
 export function isAuthError(error: unknown): boolean {
