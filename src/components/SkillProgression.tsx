@@ -127,7 +127,7 @@ export const SkillProgression: React.FC = () => {
   }, {} as Record<ExerciseType, UserSkill[]>);
 
   // Sort skills by order_index
-  Object.values(skillsByType).forEach((skills) => {
+  (Object.values(skillsByType) as UserSkill[][]).forEach((skills) => {
     skills.sort((a, b) => (a.skill?.order_index || 0) - (b.skill?.order_index || 0));
   });
 

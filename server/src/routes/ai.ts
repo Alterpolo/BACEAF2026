@@ -19,6 +19,13 @@ import {
   SubscriptionInfo,
 } from "../middleware/subscription";
 
+// Work type matching the deepseek service
+interface Work {
+  author: string;
+  title: string;
+  parcours: string;
+}
+
 // Type for context with our custom variables
 type Variables = {
   userId: string;
@@ -120,7 +127,7 @@ aiRoutes.post("/generate-subject", checkExerciseLimit, async (c) => {
   const subscription = c.get("subscription") as SubscriptionInfo;
 
   try {
-    const result = await generateSubject(data.type, data.work);
+    const result = await generateSubject(data.type, data.work as Work | undefined);
 
     // Increment exercise count for free users
     if (subscription.exercisesLimit !== -1) {
@@ -158,7 +165,7 @@ aiRoutes.post("/generate-subject-list", checkExerciseLimit, async (c) => {
   const subscription = c.get("subscription") as SubscriptionInfo;
 
   try {
-    const result = await generateSubjectList(data.work, data.type);
+    const result = await generateSubjectList(data.work as Work, data.type);
 
     // Increment exercise count for free users
     if (subscription.exercisesLimit !== -1) {
@@ -235,7 +242,7 @@ aiRoutes.post("/work-analysis", async (c) => {
   }
 
   try {
-    const result = await generateWorkAnalysis(data.work);
+    const result = await generateWorkAnalysis(data.work as Work);
     return c.json({ analysis: result });
   } catch (error) {
     console.error("Error generating work analysis:", error);

@@ -171,7 +171,7 @@ export const Dashboard: React.FC = () => {
             <div>
               <p className="text-sm text-slate-500 font-medium">Score moyen</p>
               <p className="text-3xl font-bold text-slate-900">
-                {stats?.averageScore !== null
+                {stats?.averageScore != null
                   ? `${stats.averageScore.toFixed(1)}/20`
                   : "--"}
               </p>

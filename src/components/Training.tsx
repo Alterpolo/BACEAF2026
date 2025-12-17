@@ -26,14 +26,6 @@ export const Training: React.FC = () => {
   const toast = useToast();
   const limitTrackedRef = useRef(false);
 
-  // Track when user hits the limit (only once per session)
-  useEffect(() => {
-    if (!canDoExercise && step === 1 && !limitTrackedRef.current) {
-      limitTrackedRef.current = true;
-      track('limit_reached', { remaining_exercises: remainingExercises });
-    }
-  }, [canDoExercise, step, remainingExercises]);
-
   const [exerciseType, setExerciseType] = useState<ExerciseType>(
     ExerciseType.DISSERTATION,
   );
@@ -51,6 +43,14 @@ export const Training: React.FC = () => {
   // UI State
   const [loading, setLoading] = useState<boolean>(false);
   const [step, setStep] = useState<number>(1); // 1: Config, 1.5: List Selection, 2: Writing, 3: Feedback
+
+  // Track when user hits the limit (only once per session)
+  useEffect(() => {
+    if (!canDoExercise && step === 1 && !limitTrackedRef.current) {
+      limitTrackedRef.current = true;
+      track('limit_reached', { remaining_exercises: remainingExercises });
+    }
+  }, [canDoExercise, step, remainingExercises]);
 
   const handleGenerateSingle = async () => {
     // For oral and dissertation without list, we need a work.
@@ -112,7 +112,7 @@ export const Training: React.FC = () => {
           work: selectedWork || undefined,
           subject,
           studentAnswer: studentInput,
-          aiFeedback: null,
+          aiFeedback: undefined,
         });
         if (saved) {
           setCurrentExerciseId(saved.id);

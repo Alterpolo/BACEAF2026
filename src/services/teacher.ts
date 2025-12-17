@@ -274,7 +274,7 @@ export async function getStudentClasses(): Promise<Class[]> {
   }
 
   return (data || [])
-    .map((m) => (m as { class: Class | null }).class)
+    .map((m) => (m as unknown as { class: Class | null }).class)
     .filter((c): c is Class => c !== null);
 }
 
@@ -362,6 +362,22 @@ export async function getStudentAssignments(): Promise<Assignment[]> {
   } = await supabase.auth.getUser();
   if (!user) return [];
 
+  // First, get the class IDs the student is a member of
+  const { data: membershipData, error: membershipError } = await supabase
+    .from("class_members")
+    .select("class_id")
+    .eq("student_id", user.id);
+
+  if (membershipError || !membershipData) {
+    console.error("Error fetching class memberships:", membershipError);
+    return [];
+  }
+
+  const classIds = membershipData.map((m) => m.class_id);
+  if (classIds.length === 0) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from("assignments")
     .select(
@@ -370,13 +386,7 @@ export async function getStudentAssignments(): Promise<Assignment[]> {
       class:classes(name)
     `,
     )
-    .in(
-      "class_id",
-      supabase
-        .from("class_members")
-        .select("class_id")
-        .eq("student_id", user.id),
-    )
+    .in("class_id", classIds)
     .order("due_date", { ascending: true });
 
   if (error) {

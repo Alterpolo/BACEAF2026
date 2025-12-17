@@ -90,8 +90,8 @@ export async function apiRequest<T>(
     throw new ApiClientError(
       error.error || `Erreur HTTP ${response.status}`,
       response.status,
-      error.code,
-      error.requestId
+      'code' in error ? error.code : undefined,
+      'requestId' in error ? error.requestId : undefined
     );
   }
 
