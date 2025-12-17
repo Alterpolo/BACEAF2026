@@ -1,59 +1,46 @@
+/**
+ * AI API Service
+ * Calls to the AI backend for exercise generation and evaluation
+ */
+
 import { ExerciseType, Work, WorkAnalysis } from '../types';
+import { post } from './apiClient';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
-async function apiRequest<T>(endpoint: string, body: unknown): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ error: 'Erreur réseau' }));
-    throw new Error(error.error || `Erreur HTTP ${response.status}`);
-  }
-
-  return response.json();
+/**
+ * Generate a single subject for an exercise type
+ */
+export async function generateSubject(type: ExerciseType, work?: Work): Promise<string> {
+  const result = await post<{ subject: string }>('/api/ai/generate-subject', { type, work });
+  return result.subject;
 }
 
-export const generateSubject = async (type: ExerciseType, work?: Work): Promise<string> => {
-  const result = await apiRequest<{ subject: string }>('/api/ai/generate-subject', {
-    type,
-    work,
-  });
-  return result.subject;
-};
-
-export const generateSubjectList = async (
+/**
+ * Generate a list of 3 subjects for a work
+ */
+export async function generateSubjectList(
   work: Work,
   type: ExerciseType = ExerciseType.DISSERTATION
-): Promise<string[]> => {
-  const result = await apiRequest<{ subjects: string[] }>('/api/ai/generate-subject-list', {
-    work,
-    type,
-  });
+): Promise<string[]> {
+  const result = await post<{ subjects: string[] }>('/api/ai/generate-subject-list', { work, type });
   return result.subjects;
-};
+}
 
-export const evaluateStudentWork = async (
+/**
+ * Evaluate student work and provide feedback
+ */
+export async function evaluateStudentWork(
   type: ExerciseType,
   subject: string,
   studentInput: string
-): Promise<string> => {
-  const result = await apiRequest<{ feedback: string }>('/api/ai/evaluate', {
-    type,
-    subject,
-    studentInput,
-  });
+): Promise<string> {
+  const result = await post<{ feedback: string }>('/api/ai/evaluate', { type, subject, studentInput });
   return result.feedback;
-};
+}
 
-export const generateWorkAnalysis = async (work: Work): Promise<WorkAnalysis> => {
-  const result = await apiRequest<{ analysis: WorkAnalysis }>('/api/ai/work-analysis', {
-    work,
-  });
+/**
+ * Generate a study guide for a work
+ */
+export async function generateWorkAnalysis(work: Work): Promise<WorkAnalysis> {
+  const result = await post<{ analysis: WorkAnalysis }>('/api/ai/work-analysis', { work });
   return result.analysis;
-};
+}

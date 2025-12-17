@@ -82,18 +82,26 @@ payments.get('/plans', (c) => {
 /**
  * POST /api/payments/create-checkout
  * Crée une session Stripe Checkout
+ * SECURED: Requires authentication and validates userId matches authenticated user
  */
-payments.post('/create-checkout', async (c) => {
+payments.post('/create-checkout', requireAuth, async (c) => {
   try {
     const data = await parseBody(c, CheckoutSchema);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const authenticatedUserId = (c as any).get('userId') as string;
+
+    // Security: Verify userId in body matches authenticated user
+    if (data.userId !== authenticatedUserId) {
+      return c.json({ error: 'Accès non autorisé', code: 'FORBIDDEN' }, 403);
+    }
 
     // Get or create Stripe customer
-    const customer = await getOrCreateCustomer(data.email, data.userId, data.name);
+    const customer = await getOrCreateCustomer(data.email, authenticatedUserId, data.name);
 
     // Get price ID
     const priceId = getPriceId(data.plan as PlanType, data.interval as BillingInterval);
     if (!priceId) {
-      return c.json({ error: 'Plan ou intervalle invalide' }, 400);
+      return c.json({ error: 'Plan ou intervalle invalide', code: 'INVALID_PLAN' }, 400);
     }
 
     // Get trial days
@@ -107,14 +115,14 @@ payments.post('/create-checkout', async (c) => {
       successUrl: data.successUrl,
       cancelUrl: data.cancelUrl,
       trialDays,
-      userId: data.userId,
+      userId: authenticatedUserId,
     });
 
     // Update subscription with Stripe customer ID
     await supabase
       .from('subscriptions')
       .update({ stripe_customer_id: customer.id })
-      .eq('user_id', data.userId);
+      .eq('user_id', authenticatedUserId);
 
     return c.json({
       sessionId: session.id,
@@ -123,29 +131,37 @@ payments.post('/create-checkout', async (c) => {
   } catch (error) {
     console.error('Checkout error:', error);
     if (error instanceof z.ZodError) {
-      return c.json({ error: 'Données invalides', details: error.errors }, 400);
+      return c.json({ error: 'Données invalides', code: 'INVALID_DATA', details: error.errors }, 400);
     }
-    return c.json({ error: 'Erreur lors de la création du checkout' }, 500);
+    return c.json({ error: 'Erreur lors de la création du checkout', code: 'CHECKOUT_ERROR' }, 500);
   }
 });
 
 /**
  * POST /api/payments/portal
  * Crée une session pour le portail client Stripe
+ * SECURED: Requires authentication and validates userId matches authenticated user
  */
-payments.post('/portal', async (c) => {
+payments.post('/portal', requireAuth, async (c) => {
   try {
     const data = await parseBody(c, PortalSchema);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const authenticatedUserId = (c as any).get('userId') as string;
+
+    // Security: Verify userId in body matches authenticated user
+    if (data.userId !== authenticatedUserId) {
+      return c.json({ error: 'Accès non autorisé', code: 'FORBIDDEN' }, 403);
+    }
 
     // Get subscription to find Stripe customer ID
     const { data: subscription, error } = await supabase
       .from('subscriptions')
       .select('stripe_customer_id')
-      .eq('user_id', data.userId)
+      .eq('user_id', authenticatedUserId)
       .single();
 
     if (error || !subscription?.stripe_customer_id) {
-      return c.json({ error: 'Aucun abonnement trouvé' }, 404);
+      return c.json({ error: 'Aucun abonnement trouvé', code: 'NO_SUBSCRIPTION' }, 404);
     }
 
     // Create portal session
@@ -157,7 +173,7 @@ payments.post('/portal', async (c) => {
     return c.json({ url: session.url });
   } catch (error) {
     console.error('Portal error:', error);
-    return c.json({ error: 'Erreur lors de la création du portail' }, 500);
+    return c.json({ error: 'Erreur lors de la création du portail', code: 'PORTAL_ERROR' }, 500);
   }
 });
 

@@ -5,8 +5,7 @@
 
 import { loadStripe, Stripe } from '@stripe/stripe-js';
 import { track } from './analytics';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import { get, post } from './apiClient';
 const STRIPE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
 
 let stripePromise: Promise<Stripe | null> | null = null;
@@ -58,30 +57,23 @@ export interface Subscription {
 // ============================================
 
 /**
- * Get available plans
+ * Get available plans (public, no auth required)
  */
 export async function getPlans(): Promise<Plan[]> {
-  const response = await fetch(`${API_URL}/api/payments/plans`);
-  if (!response.ok) {
-    throw new Error('Erreur lors de la récupération des plans');
-  }
-  const data = await response.json();
+  const data = await get<{ plans: Plan[] }>('/api/payments/plans', false);
   return data.plans;
 }
 
 /**
- * Get user subscription
+ * Get user subscription (requires auth)
  */
 export async function getSubscription(userId: string): Promise<Subscription> {
-  const response = await fetch(`${API_URL}/api/payments/subscription/${userId}`);
-  if (!response.ok) {
-    throw new Error('Erreur lors de la récupération de l\'abonnement');
-  }
-  return response.json();
+  return get<Subscription>(`/api/payments/subscription/${userId}`);
 }
 
 /**
- * Create checkout session and redirect to Stripe
+ * Create checkout session and redirect to Stripe (requires auth)
+ * Note: userId is validated server-side against the authenticated user
  */
 export async function createCheckout(params: {
   plan: PlanType;
@@ -93,22 +85,10 @@ export async function createCheckout(params: {
   const successUrl = `${window.location.origin}/#/tarifs?success=true`;
   const cancelUrl = `${window.location.origin}/#/tarifs?canceled=true`;
 
-  const response = await fetch(`${API_URL}/api/payments/create-checkout`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      ...params,
-      successUrl,
-      cancelUrl,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Erreur lors de la création du checkout');
-  }
-
-  const { url } = await response.json();
+  const { url } = await post<{ sessionId: string; url: string }>(
+    '/api/payments/create-checkout',
+    { ...params, successUrl, cancelUrl }
+  );
 
   // Track checkout started before redirect
   track('checkout_started', {
@@ -123,23 +103,16 @@ export async function createCheckout(params: {
 }
 
 /**
- * Open Stripe customer portal
+ * Open Stripe customer portal (requires auth)
+ * Note: userId is validated server-side against the authenticated user
  */
 export async function openCustomerPortal(userId: string): Promise<void> {
   const returnUrl = `${window.location.origin}/#/tarifs`;
 
-  const response = await fetch(`${API_URL}/api/payments/portal`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, returnUrl }),
-  });
-
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || 'Erreur lors de l\'ouverture du portail');
-  }
-
-  const { url } = await response.json();
+  const { url } = await post<{ url: string }>(
+    '/api/payments/portal',
+    { userId, returnUrl }
+  );
 
   if (url) {
     window.location.href = url;
