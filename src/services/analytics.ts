@@ -62,7 +62,7 @@ export async function track(
   // Essential events (signup, login) are always tracked for security/anti-fraud
   const isEssentialEvent = ['signup', 'login'].includes(eventName);
   if (!isEssentialEvent && !hasConsentedToAnalytics()) {
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.log('[Analytics] Skipping event (no consent):', eventName);
     }
     return;
@@ -84,13 +84,13 @@ export async function track(
         user_agent: navigator.userAgent,
       })
       .then(({ error }) => {
-        if (error && process.env.NODE_ENV === 'development') {
+        if (error && import.meta.env.DEV) {
           console.warn('[Analytics] Failed to track event:', eventName, error.message);
         }
       });
   } catch (error) {
     // Silently fail - analytics should never break the app
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.warn('[Analytics] Error tracking event:', eventName, error);
     }
   }
@@ -121,7 +121,7 @@ export async function identifyUser(userId: string): Promise<void> {
       .is('user_id', null);
   } catch (error) {
     // Silently fail
-    if (process.env.NODE_ENV === 'development') {
+    if (import.meta.env.DEV) {
       console.warn('[Analytics] Error identifying user:', error);
     }
   }

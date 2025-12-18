@@ -233,17 +233,32 @@ aiRoutes.post("/evaluate", checkExerciseLimit, async (c) => {
 /**
  * POST /api/ai/work-analysis
  * Generate a study guide for a work
- * Does NOT count toward exercise limit (informational only)
+ * Counts toward exercise limit for free users (prevents abuse)
  */
-aiRoutes.post("/work-analysis", async (c) => {
+aiRoutes.post("/work-analysis", checkExerciseLimit, async (c) => {
   const data = await parseBody(c, WorkAnalysisSchema);
   if (!data) {
     return c.json({ error: "Données invalides", code: "INVALID_DATA" }, 400);
   }
 
+  const userId = c.get("userId") as string;
+  const subscription = c.get("subscription") as SubscriptionInfo;
+
   try {
     const result = await generateWorkAnalysis(data.work as Work);
-    return c.json({ analysis: result });
+
+    // Increment exercise count for free users
+    if (subscription.exercisesLimit !== -1) {
+      await incrementExerciseCount(userId);
+    }
+
+    return c.json({
+      analysis: result,
+      exercisesRemaining:
+        subscription.exercisesLimit === -1
+          ? "unlimited"
+          : subscription.exercisesLimit - subscription.exercisesThisWeek - 1,
+    });
   } catch (error) {
     console.error("Error generating work analysis:", error);
     return c.json(

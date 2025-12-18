@@ -9,7 +9,14 @@
  * 2. Call these functions from TeacherDashboard or admin tools
  */
 
-const N8N_BASE_URL = import.meta.env.VITE_N8N_URL || 'https://n8n.srv831064.hstgr.cloud';
+// N8N_BASE_URL is required - no fallback to prevent accidental production calls
+const N8N_BASE_URL = import.meta.env.VITE_N8N_URL || '';
+
+function ensureN8nConfigured(): void {
+  if (!N8N_BASE_URL) {
+    throw new Error('VITE_N8N_URL environment variable is required for n8n integration');
+  }
+}
 
 // ============================================
 // TYPES
@@ -83,6 +90,7 @@ const ENDPOINTS = {
  * 3. Return: { subject: string }
  */
 export async function generateExercise(params: GenerateExerciseParams): Promise<string> {
+  ensureN8nConfigured();
   const response = await fetch(`${N8N_BASE_URL}${ENDPOINTS.generateExercise}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -108,6 +116,7 @@ export async function generateExercise(params: GenerateExerciseParams): Promise<
  * 3. Return: { exercises: [...], totalGenerated, errors? }
  */
 export async function batchGenerateExercises(params: BatchGenerateParams): Promise<BatchResult> {
+  ensureN8nConfigured();
   const response = await fetch(`${N8N_BASE_URL}${ENDPOINTS.batchGenerate}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -139,6 +148,7 @@ export async function generateWorkAnalysis(work: Work): Promise<{
   summary: { partTitle: string; content: string }[];
   characters: { name: string; description: string }[];
 }> {
+  ensureN8nConfigured();
   const response = await fetch(`${N8N_BASE_URL}${ENDPOINTS.generateAnalysis}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -162,6 +172,9 @@ export async function generateWorkAnalysis(work: Work): Promise<{
  * Check if n8n is reachable
  */
 export async function checkN8nConnection(): Promise<boolean> {
+  if (!N8N_BASE_URL) {
+    return false;
+  }
   try {
     // n8n health check or simple webhook ping
     const response = await fetch(`${N8N_BASE_URL}/healthz`, {
