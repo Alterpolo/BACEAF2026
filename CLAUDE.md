@@ -90,7 +90,7 @@ server/src/
 │   └── subscription.ts   # Plan verification
 └── index.ts              # Server entry point
 
-supabase/migrations/      # SQL migration files (001-004)
+supabase/migrations/      # SQL migration files (001-007)
 ```
 
 ### API Endpoints
@@ -134,6 +134,9 @@ supabase/migrations/      # SQL migration files (001-004)
 
 Located in `supabase/migrations/`:
 1. `001_initial_schema.sql` - Users, exercises, progress, notes
-2. `002_teacher_mode.sql` - Classes, teacher-student relationships
+2. `002_teacher_mode.sql` - Profiles, classes, teacher-student relationships
 3. `003_methodology_progression.sql` - Skills, user_skills, achievements
-4. `004_stripe_subscriptions.sql` - Subscriptions, tutors, tutoring_sessions
+4. `004_stripe_subscriptions.sql` - Subscriptions, stripe_events, tutors, tutoring_sessions
+5. `005_tutoring_hours_rpc.sql` - Atomic RPC for tutoring hours (increment/decrement)
+6. `006_onboarding_fields.sql` - Onboarding completion tracking
+7. `007_analytics_events.sql` - Analytics events for conversion funnel
